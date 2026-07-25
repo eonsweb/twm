@@ -7,21 +7,28 @@ use Illuminate\Database\Seeder;
 
 class UserSeeder extends Seeder
 {
+    public const ADMIN_EMAIL = 'admin@example.com';
+
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
-        User::factory()->create([
+        if (! app()->environment(['local', 'testing'])) {
+            return;
+        }
+
+        User::query()->firstOrCreate(['email' => self::ADMIN_EMAIL], [
             'name' => 'System Administrator',
             'username' => 'admin',
-            'email' => 'admin@example.com',
             'email_verified_at' => now(),
             // Local development and testing credential only.
             'password' => 'password',
             'account_status' => 'active',
         ]);
 
-        User::factory(9)->create();
+        $usersToCreate = max(0, 10 - User::query()->count());
+
+        User::factory($usersToCreate)->create();
     }
 }
