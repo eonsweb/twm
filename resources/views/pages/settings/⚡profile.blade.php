@@ -5,6 +5,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -13,6 +14,7 @@ new #[Title('Profile settings')] class extends Component {
     use ProfileValidationRules;
 
     public string $name = '';
+    public string $username = '';
     public string $email = '';
 
     /**
@@ -21,6 +23,7 @@ new #[Title('Profile settings')] class extends Component {
     public function mount(): void
     {
         $this->name = Auth::user()->name;
+        $this->username = Auth::user()->username;
         $this->email = Auth::user()->email;
     }
 
@@ -30,8 +33,12 @@ new #[Title('Profile settings')] class extends Component {
     public function updateProfileInformation(): void
     {
         $user = Auth::user();
+        $this->username = Str::lower(trim($this->username));
 
-        $validated = $this->validate($this->profileRules($user->id));
+        $validated = $this->validate($this->profileRules(
+            userId: $user->id,
+            reserveAdminUsername: $user->username !== 'admin',
+        ));
 
         $user->fill($validated);
 
@@ -81,9 +88,11 @@ new #[Title('Profile settings')] class extends Component {
 
     <flux:heading class="sr-only">{{ __('Profile settings') }}</flux:heading>
 
-    <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
+    <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name, username, and email address')">
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
             <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
+
+            <flux:input wire:model="username" :label="__('Username')" type="text" required autocomplete="username" />
 
             <div>
                 <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />

@@ -26,9 +26,16 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
+            'username' => fake()->unique()->regexify('[a-z][a-z0-9._-]{7,15}'),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
+            'photo' => null,
             'password' => static::$password ??= Hash::make('password'),
+            'account_status' => 'active',
+            'last_login_at' => null,
+            'last_login_ip' => null,
+            'suspended_at' => null,
+            'suspension_reason' => null,
             'remember_token' => Str::random(10),
             'two_factor_secret' => null,
             'two_factor_recovery_codes' => null,
@@ -43,6 +50,28 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    /**
+     * Indicate that the user account is inactive.
+     */
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'account_status' => 'inactive',
+        ]);
+    }
+
+    /**
+     * Indicate that the user account is suspended.
+     */
+    public function suspended(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'account_status' => 'suspended',
+            'suspended_at' => now(),
+            'suspension_reason' => fake()->sentence(),
         ]);
     }
 
