@@ -11,6 +11,19 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
+    --color-church-maroon-50: #fdf4f5;
+    --color-church-maroon-100: #fbe8eb;
+    --color-church-maroon-700: #7d1830;
+    --color-church-maroon-800: #681329;
+    --color-church-maroon-900: #571123;
+    --color-church-maroon-950: #350814;
+    --color-church-gold-50: #fffbea;
+    --color-church-gold-100: #fff3c4;
+    --color-church-gold-300: #f7d369;
+    --color-church-gold-400: #edbd3d;
+    --color-church-gold-500: #dca41f;
+    --color-church-gold-600: #bd8117;
+
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
     --color-zinc-200: #e5e5e5;
@@ -26,6 +39,37 @@
     --color-accent: var(--color-neutral-800);
     --color-accent-content: var(--color-neutral-800);
     --color-accent-foreground: var(--color-white);
+
+    --shadow-admin-panel: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.04);
+}
+
+.admin-sidebar {
+    background:
+        radial-gradient(circle at 10% 4%, rgb(125 24 48 / 0.72), transparent 32%),
+        linear-gradient(180deg, #571123 0%, #350814 100%) !important;
+}
+
+.admin-sidebar [data-flux-sidebar-group] > div:first-child > div {
+    color: rgb(255 255 255 / 0.46);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.admin-sidebar-item {
+    color: rgb(255 255 255 / 0.84) !important;
+}
+
+.admin-sidebar-item:hover {
+    background-color: rgb(255 255 255 / 0.1) !important;
+    color: white !important;
+}
+
+.admin-sidebar-item[data-current] {
+    background-color: var(--color-church-gold-500) !important;
+    color: var(--color-church-maroon-950) !important;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
 }
 
 @layer theme {

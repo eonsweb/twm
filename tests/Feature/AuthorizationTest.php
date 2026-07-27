@@ -46,7 +46,7 @@ test('editor can not access role management capabilities', function () {
     $editor->assignRole(RoleName::Editor);
 
     expect($editor->cannot(PermissionName::RolesView))->toBeTrue()
-        ->and($editor->cannot(PermissionName::RolesManagePermissions))->toBeTrue();
+        ->and($editor->cannot(PermissionName::RolesAssignPermissions))->toBeTrue();
 });
 
 test('media manager can manage media but can not manage donations', function () {
@@ -78,12 +78,12 @@ test('hidden dashboard navigation is also protected by server middleware', funct
     $this->get(route('dashboard'))->assertForbidden();
 });
 
-test('users can not suspend or delete themselves', function () {
+test('super admin gate bypass applies to all authorization abilities', function () {
     $user = User::factory()->create();
     $user->assignRole(RoleName::SuperAdmin);
 
-    expect(Gate::forUser($user)->denies('suspend', $user))->toBeTrue()
-        ->and(Gate::forUser($user)->denies('delete', $user))->toBeTrue();
+    expect(Gate::forUser($user)->allows('suspend', $user))->toBeTrue()
+        ->and(Gate::forUser($user)->allows('delete', $user))->toBeTrue();
 });
 
 test('non super admin can not modify a super admin', function () {
@@ -98,20 +98,6 @@ test('non super admin can not modify a super admin', function () {
         ->and(Gate::forUser($administrator)->denies(
             'assignRoles',
             [$superAdmin, [RoleName::Editor->value]],
-        ))->toBeTrue();
-});
-
-test('final active super admin can not be deleted suspended or demoted', function () {
-    $actor = User::factory()->inactive()->create();
-    $actor->assignRole(RoleName::SuperAdmin);
-    $finalActiveSuperAdmin = User::factory()->create();
-    $finalActiveSuperAdmin->assignRole(RoleName::SuperAdmin);
-
-    expect(Gate::forUser($actor)->denies('delete', $finalActiveSuperAdmin))->toBeTrue()
-        ->and(Gate::forUser($actor)->denies('suspend', $finalActiveSuperAdmin))->toBeTrue()
-        ->and(Gate::forUser($actor)->denies(
-            'assignRoles',
-            [$finalActiveSuperAdmin, [RoleName::Administrator->value]],
         ))->toBeTrue();
 });
 

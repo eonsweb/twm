@@ -18,7 +18,7 @@ enum PermissionName: string
     case RolesCreate = 'roles.create';
     case RolesUpdate = 'roles.update';
     case RolesDelete = 'roles.delete';
-    case RolesManagePermissions = 'roles.manage-permissions';
+    case RolesAssignPermissions = 'roles.assign-permissions';
 
     case SermonsView = 'sermons.view';
     case SermonsCreate = 'sermons.create';
@@ -36,6 +36,14 @@ enum PermissionName: string
     case MinistriesCreate = 'ministries.create';
     case MinistriesUpdate = 'ministries.update';
     case MinistriesDelete = 'ministries.delete';
+    case MinistriesPublish = 'ministries.publish';
+
+    case LeadershipView = 'leadership.view';
+    case LeadershipCreate = 'leadership.create';
+    case LeadershipUpdate = 'leadership.update';
+    case LeadershipDelete = 'leadership.delete';
+    case LeadershipPublish = 'leadership.publish';
+    case LeadershipReorder = 'leadership.reorder';
 
     case PostsView = 'posts.view';
     case PostsCreate = 'posts.create';
@@ -72,6 +80,10 @@ enum PermissionName: string
     case SettingsUpdate = 'settings.update';
 
     case ActivityLogsView = 'activity-logs.view';
+
+    case WebsiteContentView = 'website-content.view';
+    case WebsiteContentUpdate = 'website-content.update';
+    case WebsiteContentPublish = 'website-content.publish';
 
     /**
      * Get all permission names.

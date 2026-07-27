@@ -91,6 +91,25 @@ class UserPolicy
             && ! $this->isFinalActiveSuperAdmin($target);
     }
 
+    public function deactivate(User $user, User $target): bool
+    {
+        return $this->suspend($user, $target);
+    }
+
+    public function activate(User $user, User $target): bool
+    {
+        if (! $user->can(PermissionName::UsersRestore)) {
+            return false;
+        }
+
+        return $user->hasRole(RoleName::SuperAdmin) || ! $target->hasRole(RoleName::SuperAdmin);
+    }
+
+    public function sendInvitation(User $user, User $target): bool
+    {
+        return $this->update($user, $target);
+    }
+
     /**
      * Determine whether the user can assign the requested roles.
      *

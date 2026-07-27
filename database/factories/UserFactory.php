@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\AccountStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -31,7 +32,8 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'photo' => null,
             'password' => static::$password ??= Hash::make('password'),
-            'account_status' => 'active',
+            'must_change_password' => false,
+            'account_status' => AccountStatus::Active->value,
             'last_login_at' => null,
             'last_login_ip' => null,
             'suspended_at' => null,
@@ -54,12 +56,22 @@ class UserFactory extends Factory
     }
 
     /**
+     * Indicate that the user must replace a temporary password.
+     */
+    public function requiringPasswordChange(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'must_change_password' => true,
+        ]);
+    }
+
+    /**
      * Indicate that the user account is inactive.
      */
     public function inactive(): static
     {
         return $this->state(fn (array $attributes) => [
-            'account_status' => 'inactive',
+            'account_status' => AccountStatus::Inactive->value,
         ]);
     }
 
@@ -69,7 +81,7 @@ class UserFactory extends Factory
     public function suspended(): static
     {
         return $this->state(fn (array $attributes) => [
-            'account_status' => 'suspended',
+            'account_status' => AccountStatus::Suspended->value,
             'suspended_at' => now(),
             'suspension_reason' => fake()->sentence(),
         ]);

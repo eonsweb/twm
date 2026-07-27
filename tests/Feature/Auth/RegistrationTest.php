@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Fortify\Features;
 
 beforeEach(function () {
@@ -14,6 +16,8 @@ test('registration screen can be rendered', function () {
 });
 
 test('new users can register', function () {
+    Notification::fake();
+
     $response = $this->post(route('register.store'), [
         'name' => 'John Doe',
         'username' => 'john.doe_2-test',
@@ -27,8 +31,18 @@ test('new users can register', function () {
 
     $this->assertAuthenticated();
 
-    expect(User::query()->where('email', 'test@example.com')->value('username'))
-        ->toBe('john.doe_2-test');
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
+
+    expect($user->username)->toBe('john.doe_2-test')
+        ->and($user->email_verified_at)->toBeNull()
+        ->and($user->must_change_password)->toBeFalse()
+        ->and($user->roles)->toBeEmpty();
+
+    Notification::assertSentTo($user, VerifyEmail::class);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertRedirect(route('verification.notice'));
 });
 
 test('registration normalizes usernames to lowercase', function () {

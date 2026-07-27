@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\EnsurePasswordHasBeenChanged;
 use App\Models\User;
+use App\Policies\RolePolicy;
 use App\RoleName;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -10,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,6 +32,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureAuthorization();
+
+        Livewire::addPersistentMiddleware([
+            EnsurePasswordHasBeenChanged::class,
+        ]);
     }
 
     /**
@@ -57,14 +65,12 @@ class AppServiceProvider extends ServiceProvider
      */
     private function configureAuthorization(): void
     {
-        Gate::before(function (User $user, string $ability): ?bool {
-            if (! $user->hasRole(RoleName::SuperAdmin)) {
-                return null;
-            }
+        Gate::policy(Role::class, RolePolicy::class);
 
-            return in_array($ability, ['delete', 'forceDelete', 'suspend', 'assignRoles'], true)
-                ? null
-                : true;
-        });
+        Gate::before(
+            fn (User $user, string $ability): ?bool => $user->hasRole(RoleName::SuperAdmin)
+                ? true
+                : null,
+        );
     }
 }

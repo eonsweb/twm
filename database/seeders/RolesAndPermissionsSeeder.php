@@ -6,6 +6,7 @@ use App\Models\User;
 use App\PermissionName;
 use App\RoleName;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -21,21 +22,25 @@ class RolesAndPermissionsSeeder extends Seeder
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        foreach (PermissionName::cases() as $permission) {
-            Permission::query()->firstOrCreate([
-                'name' => $permission->value,
-                'guard_name' => self::GUARD,
-            ]);
-        }
+        DB::transaction(function (): void {
+            $this->migrateLegacyNames();
 
-        foreach ($this->rolePermissions() as $roleName => $permissions) {
-            $role = Role::query()->firstOrCreate([
-                'name' => $roleName,
-                'guard_name' => self::GUARD,
-            ]);
+            foreach (PermissionName::cases() as $permission) {
+                Permission::query()->firstOrCreate([
+                    'name' => $permission->value,
+                    'guard_name' => self::GUARD,
+                ]);
+            }
 
-            $role->syncPermissions($permissions);
-        }
+            foreach ($this->rolePermissions() as $roleName => $permissions) {
+                $role = Role::query()->firstOrCreate([
+                    'name' => $roleName,
+                    'guard_name' => self::GUARD,
+                ]);
+
+                $role->syncPermissions($permissions);
+            }
+        });
 
         $this->assignDevelopmentSuperAdmin();
 
@@ -60,6 +65,11 @@ class RolesAndPermissionsSeeder extends Seeder
                 PermissionName::UsersSuspend,
                 PermissionName::UsersRestore,
                 PermissionName::UsersAssignRoles,
+                PermissionName::RolesView,
+                PermissionName::RolesCreate,
+                PermissionName::RolesUpdate,
+                PermissionName::RolesDelete,
+                PermissionName::RolesAssignPermissions,
                 PermissionName::SermonsView,
                 PermissionName::SermonsCreate,
                 PermissionName::SermonsUpdate,
@@ -74,6 +84,13 @@ class RolesAndPermissionsSeeder extends Seeder
                 PermissionName::MinistriesCreate,
                 PermissionName::MinistriesUpdate,
                 PermissionName::MinistriesDelete,
+                PermissionName::MinistriesPublish,
+                PermissionName::LeadershipView,
+                PermissionName::LeadershipCreate,
+                PermissionName::LeadershipUpdate,
+                PermissionName::LeadershipDelete,
+                PermissionName::LeadershipPublish,
+                PermissionName::LeadershipReorder,
                 PermissionName::PostsView,
                 PermissionName::PostsCreate,
                 PermissionName::PostsUpdate,
@@ -83,6 +100,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 PermissionName::MediaUpload,
                 PermissionName::MediaUpdate,
                 PermissionName::MediaDelete,
+                PermissionName::WebsiteContentView,
+                PermissionName::WebsiteContentUpdate,
+                PermissionName::WebsiteContentPublish,
                 PermissionName::PagesView,
                 PermissionName::PagesCreate,
                 PermissionName::PagesUpdate,
@@ -114,6 +134,13 @@ class RolesAndPermissionsSeeder extends Seeder
                 PermissionName::MinistriesCreate,
                 PermissionName::MinistriesUpdate,
                 PermissionName::MinistriesDelete,
+                PermissionName::MinistriesPublish,
+                PermissionName::LeadershipView,
+                PermissionName::LeadershipCreate,
+                PermissionName::LeadershipUpdate,
+                PermissionName::LeadershipDelete,
+                PermissionName::LeadershipPublish,
+                PermissionName::LeadershipReorder,
                 PermissionName::PostsView,
                 PermissionName::PostsCreate,
                 PermissionName::PostsUpdate,
@@ -128,6 +155,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 PermissionName::MediaUpload,
                 PermissionName::MediaUpdate,
                 PermissionName::MediaDelete,
+                PermissionName::WebsiteContentView,
+                PermissionName::WebsiteContentUpdate,
+                PermissionName::WebsiteContentPublish,
                 PermissionName::PrayerRequestsView,
                 PermissionName::PrayerRequestsUpdate,
                 PermissionName::PrayerRequestsDelete,
@@ -142,6 +172,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 PermissionName::MediaUpload,
                 PermissionName::MediaUpdate,
                 PermissionName::MediaDelete,
+                PermissionName::WebsiteContentView,
             ]),
             RoleName::FinanceOfficer->value => $this->permissionValues([
                 PermissionName::DashboardView,
@@ -181,5 +212,77 @@ class RolesAndPermissionsSeeder extends Seeder
             ->where('email', UserSeeder::ADMIN_EMAIL)
             ->first()
             ?->syncRoles([RoleName::SuperAdmin]);
+    }
+
+    private function migrateLegacyNames(): void
+    {
+        foreach (RoleName::cases() as $roleName) {
+            $legacyRole = Role::query()
+                ->where('name', $roleName->label())
+                ->where('guard_name', self::GUARD)
+                ->first();
+
+            if ($legacyRole === null) {
+                continue;
+            }
+
+            $currentRole = Role::query()
+                ->where('name', $roleName->value)
+                ->where('guard_name', self::GUARD)
+                ->first();
+
+            if ($currentRole === null) {
+                $legacyRole->update(['name' => $roleName->value]);
+
+                continue;
+            }
+
+            $legacyUsers = User::query()
+                ->whereHas(
+                    'roles',
+                    fn ($query) => $query->whereKey($legacyRole->getKey()),
+                )
+                ->get();
+
+            foreach ($legacyUsers as $user) {
+                $user->assignRole($currentRole);
+                $user->removeRole($legacyRole);
+            }
+
+            $legacyRole->delete();
+        }
+
+        $legacyPermission = Permission::query()
+            ->where('name', 'roles.manage-permissions')
+            ->where('guard_name', self::GUARD)
+            ->first();
+
+        if ($legacyPermission === null) {
+            return;
+        }
+
+        $currentPermission = Permission::query()
+            ->where('name', PermissionName::RolesAssignPermissions->value)
+            ->where('guard_name', self::GUARD)
+            ->first();
+
+        if ($currentPermission === null) {
+            $legacyPermission->update(['name' => PermissionName::RolesAssignPermissions->value]);
+
+            return;
+        }
+
+        $legacyRoles = Role::query()
+            ->whereHas(
+                'permissions',
+                fn ($query) => $query->whereKey($legacyPermission->getKey()),
+            )
+            ->get();
+
+        foreach ($legacyRoles as $role) {
+            $role->givePermissionTo($currentPermission);
+        }
+
+        $legacyPermission->delete();
     }
 }
