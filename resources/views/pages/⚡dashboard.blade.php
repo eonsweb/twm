@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\Sermon;
 use App\Models\User;
 use App\PermissionName;
+use App\SermonStatus;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
@@ -25,8 +27,8 @@ new #[Title('Dashboard')] class extends Component
         return [
             [
                 'label' => __('Sermons'),
-                'value' => '—',
-                'caption' => __('Content module coming soon'),
+                'value' => Sermon::query()->publiclyAvailable()->count(),
+                'caption' => __('Published sermons'),
                 'icon' => 'play-circle',
                 'tone' => 'gold',
                 'permission' => PermissionName::SermonsView->value,
@@ -86,6 +88,16 @@ new #[Title('Dashboard')] class extends Component
     {
         return Str::before(auth()->user()->name, ' ');
     }
+
+    #[Computed]
+    public function recentSermons()
+    {
+        return Sermon::query()
+            ->with('speaker:id,title,first_name,middle_name,last_name')
+            ->latest('updated_at')
+            ->limit(5)
+            ->get(['id', 'title', 'slug', 'speaker_id', 'status', 'updated_at']);
+    }
 };
 ?>
 
@@ -121,11 +133,17 @@ new #[Title('Dashboard')] class extends Component
                     <h2 class="font-semibold text-slate-950 dark:text-white">{{ __('Recent sermons') }}</h2>
                     <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-500">{{ __('Latest messages published to the church website') }}</p>
                 </div>
-                <x-admin.empty-state
-                    icon="play-circle"
-                    :title="__('No sermon data yet')"
-                    :description="__('Recent sermons will appear here when the sermons module is available.')"
-                />
+                @forelse ($this->recentSermons as $sermon)
+                    <a href="{{ route('sermons.show', $sermon) }}" class="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-3 last:border-0 dark:border-zinc-800" wire:navigate wire:key="dashboard-sermon-{{ $sermon->id }}">
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-semibold">{{ $sermon->title }}</p>
+                            <p class="text-xs text-slate-500">{{ $sermon->speaker->full_name }}</p>
+                        </div>
+                        <flux:badge :color="$sermon->status === SermonStatus::Published ? 'green' : 'zinc'">{{ $sermon->status->label() }}</flux:badge>
+                    </a>
+                @empty
+                    <x-admin.empty-state icon="play-circle" :title="__('No sermon data yet')" :description="__('Create the first sermon to see it here.')" />
+                @endforelse
             </article>
         @endcan
 

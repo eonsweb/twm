@@ -125,6 +125,14 @@ class Person extends Model
     }
 
     /**
+     * @return HasMany<Sermon, $this>
+     */
+    public function sermons(): HasMany
+    {
+        return $this->hasMany(Sermon::class, 'speaker_id');
+    }
+
+    /**
      * @param  Builder<Person>  $query
      * @return Builder<Person>
      */
@@ -140,6 +148,24 @@ class Person extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * @param  Builder<Person>  $query
+     * @return Builder<Person>
+     */
+    public function scopePublicSpeakers(Builder $query): Builder
+    {
+        return $query
+            ->active()
+            ->where('is_public', true)
+            ->whereHas(
+                'sermons',
+                fn (Builder $sermons): Builder => $sermons->whereIn(
+                    (new Sermon)->qualifyColumn('id'),
+                    Sermon::query()->publiclyAvailable()->select('id'),
+                ),
+            );
     }
 
     /**

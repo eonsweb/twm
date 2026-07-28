@@ -73,4 +73,9 @@ class PersonPolicy
     {
         return $user->can(PermissionName::LeadershipReorder);
     }
+
+    public function manageSpeakers(User $user): bool
+    {
+        return $user->can(PermissionName::SpeakersManage);
+    }
 }

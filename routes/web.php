@@ -11,6 +11,13 @@ Route::view('/', 'welcome')
     ->middleware(EnforcePublicWebsiteAvailability::class)
     ->name('home');
 
+Route::middleware(EnforcePublicWebsiteAvailability::class)->group(function (): void {
+    Route::livewire('sermons', 'pages::public.sermons.index')->name('public.sermons.index');
+    Route::livewire('sermons/{sermon:slug}', 'pages::public.sermons.show')->name('public.sermons.show');
+    Route::livewire('sermon-series/{series:slug}', 'pages::public.sermon-series.show')->name('public.sermon-series.show');
+    Route::livewire('speakers/{speaker:slug}', 'pages::public.speakers.show')->name('public.speakers.show');
+});
+
 Route::livewire('password/change-required', 'pages::auth.force-password-change')
     ->middleware(['auth', 'account.active'])
     ->name('password.change.required');
@@ -90,6 +97,30 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'verified'])->g
             'password.confirm',
         ])
         ->name('activity-logs.export');
+
+    Route::prefix('admin')->group(function (): void {
+        Route::livewire('sermons', 'pages::sermons.index')
+            ->middleware(PermissionMiddleware::using(PermissionName::SermonsView))
+            ->name('sermons.index');
+        Route::livewire('sermons/create', 'pages::sermons.create')
+            ->middleware(PermissionMiddleware::using(PermissionName::SermonsCreate))
+            ->name('sermons.create');
+        Route::livewire('sermons/{sermon:slug}/edit', 'pages::sermons.edit')
+            ->middleware(PermissionMiddleware::using(PermissionName::SermonsUpdate))
+            ->name('sermons.edit');
+        Route::livewire('sermons/{sermon:slug}', 'pages::sermons.show')
+            ->middleware(PermissionMiddleware::using(PermissionName::SermonsView))
+            ->name('sermons.show');
+        Route::livewire('sermon-series', 'pages::sermon-series.index')
+            ->middleware(PermissionMiddleware::using(PermissionName::SermonsView))
+            ->name('sermon-series.index');
+        Route::livewire('speakers', 'pages::speakers.index')
+            ->middleware(PermissionMiddleware::using(PermissionName::SermonsView))
+            ->name('speakers.index');
+        Route::livewire('sermon-topics', 'pages::topics.index')
+            ->middleware(PermissionMiddleware::using(PermissionName::SermonsView))
+            ->name('sermon-topics.index');
+    });
 });
 
 require __DIR__.'/settings.php';

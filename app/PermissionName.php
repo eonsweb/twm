@@ -25,6 +25,15 @@ enum PermissionName: string
     case SermonsUpdate = 'sermons.update';
     case SermonsDelete = 'sermons.delete';
     case SermonsPublish = 'sermons.publish';
+    case SermonsUnpublish = 'sermons.unpublish';
+    case SermonsSchedule = 'sermons.schedule';
+    case SermonsArchive = 'sermons.archive';
+    case SermonsRestore = 'sermons.restore';
+    case SermonsForceDelete = 'sermons.force-delete';
+    case SermonsFeature = 'sermons.feature';
+    case SermonSeriesManage = 'sermon-series.manage';
+    case SpeakersManage = 'speakers.manage';
+    case SermonTopicsManage = 'sermon-topics.manage';
 
     case EventsView = 'events.view';
     case EventsCreate = 'events.create';
