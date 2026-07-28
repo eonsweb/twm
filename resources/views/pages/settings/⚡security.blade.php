@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\PasswordValidationRules;
+use App\Activity\ActivityLogger;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -66,7 +67,7 @@ new #[Title('Security settings')] class extends Component {
     /**
      * Update the password for the currently authenticated user.
      */
-    public function updatePassword(): void
+    public function updatePassword(ActivityLogger $activityLogger): void
     {
         try {
             $validated = $this->validate([
@@ -82,6 +83,15 @@ new #[Title('Security settings')] class extends Component {
         Auth::user()->update([
             'password' => $validated['password'],
         ]);
+
+        $activityLogger->log(
+            logName: 'authentication',
+            event: 'password.changed',
+            description: 'Changed their account password.',
+            subject: Auth::user(),
+            causer: Auth::user(),
+            properties: ['password' => 'Changed'],
+        );
 
         $this->reset('current_password', 'password', 'password_confirmation');
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Person;
+use App\Activity\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
@@ -32,10 +33,11 @@ new #[Title('Leadership ordering')] class extends Component
             ->get();
     }
 
-    public function reorder(int $personId, int $position): void
+    public function reorder(int $personId, int $position, ActivityLogger $activityLogger): void
     {
         Gate::authorize('reorder', Person::class);
 
+        $oldOrder = $this->leaders->pluck('id')->values()->all();
         $orderedIds = $this->leaders->pluck('id')->reject(
             fn (int $id): bool => $id === $personId,
         )->values();
@@ -50,6 +52,16 @@ new #[Title('Leadership ordering')] class extends Component
                     ->update(['sort_order' => ($index + 1) * 10]);
             }
         });
+
+        $person = Person::query()->findOrFail($personId);
+        $activityLogger->log(
+            logName: 'leadership',
+            event: 'leadership.display_order_changed',
+            description: "Changed the leadership display order for {$person->full_name}.",
+            subject: $person,
+            oldValues: ['person_ids' => $oldOrder],
+            newValues: ['person_ids' => $orderedIds->all()],
+        );
 
         unset($this->leaders);
     }

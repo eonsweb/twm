@@ -3,6 +3,7 @@
 namespace App\Actions\Users;
 
 use App\AccountStatus;
+use App\Activity\ActivityLogger;
 use App\Models\Person;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -17,7 +18,10 @@ class CreateAdminUser
 {
     public const TEMPORARY_PASSWORD = 'password';
 
-    public function __construct(private SyncUserRoles $syncUserRoles) {}
+    public function __construct(
+        private readonly SyncUserRoles $syncUserRoles,
+        private readonly ActivityLogger $activityLogger,
+    ) {}
 
     /**
      * @param  array{name: string, username: string, email: string}  $data
@@ -37,7 +41,7 @@ class CreateAdminUser
         $photoPath = $this->storePhoto($photo);
 
         try {
-            return DB::transaction(function () use ($actor, $data, $roleIds, $accountStatus, $suspensionReason, $personId, $photoPath): User {
+            $user = DB::transaction(function () use ($actor, $data, $roleIds, $accountStatus, $suspensionReason, $personId, $photoPath): User {
                 $user = User::query()->create([
                     ...$data,
                     'email_verified_at' => now(),
@@ -71,6 +75,25 @@ class CreateAdminUser
 
             throw $exception;
         }
+
+        $this->activityLogger->log(
+            logName: 'users',
+            event: 'user.created',
+            description: "Created user {$user->name}.",
+            subject: $user,
+            causer: $actor,
+            newValues: [
+                'name' => $user->name,
+                'username' => $user->username,
+                'email' => $user->email,
+                'account_status' => $user->account_status,
+                'roles' => $user->roles->pluck('name')->all(),
+                'photo' => $user->photo === null ? 'Not set' : 'Added',
+                'must_change_password' => $user->must_change_password,
+            ],
+        );
+
+        return $user;
     }
 
     private function storePhoto(?UploadedFile $photo): ?string

@@ -45,7 +45,7 @@ new #[Title('Administrator details')] class extends Component
     {
         Gate::authorize('activate', $this->user);
 
-        $this->user = $this->loadUser($changeUserStatus->activate($this->user));
+        $this->user = $this->loadUser($changeUserStatus->activate(auth()->user(), $this->user));
         Flux::toast(variant: 'success', text: __('Account activated.'));
     }
 

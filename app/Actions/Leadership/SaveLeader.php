@@ -2,6 +2,7 @@
 
 namespace App\Actions\Leadership;
 
+use App\Activity\ActivityLogger;
 use App\Models\Person;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,8 @@ use Throwable;
 
 class SaveLeader
 {
+    public function __construct(private readonly ActivityLogger $activityLogger) {}
+
     /**
      * @param  array<string, mixed>  $personData
      * @param  array{
@@ -29,6 +32,11 @@ class SaveLeader
         ?UploadedFile $portrait = null,
         ?Person $person = null,
     ): Person {
+        $oldAssignments = $person?->leadershipAssignments()
+            ->orderBy('leadership_position_id')
+            ->get(['leadership_position_id', 'display_title', 'started_at', 'ended_at', 'is_current', 'is_primary', 'sort_order'])
+            ->map->only(['leadership_position_id', 'display_title', 'started_at', 'ended_at', 'is_current', 'is_primary', 'sort_order'])
+            ->all() ?? [];
         $oldPortraitPath = $person?->photo_path;
         $newPortraitPath = null;
 
@@ -81,6 +89,23 @@ class SaveLeader
 
         if ($newPortraitPath !== null && $oldPortraitPath !== null && $oldPortraitPath !== $newPortraitPath) {
             Storage::disk('public')->delete($oldPortraitPath);
+        }
+
+        $newAssignments = $savedPerson->leadershipAssignments
+            ->sortBy('leadership_position_id')
+            ->values()
+            ->map->only(['leadership_position_id', 'display_title', 'started_at', 'ended_at', 'is_current', 'is_primary', 'sort_order'])
+            ->all();
+
+        if ($oldAssignments !== $newAssignments) {
+            $this->activityLogger->log(
+                logName: 'leadership',
+                event: 'leadership.assignments_updated',
+                description: "Updated ministry positions for {$savedPerson->full_name}.",
+                subject: $savedPerson,
+                oldValues: ['assignments' => $oldAssignments],
+                newValues: ['assignments' => $newAssignments],
+            );
         }
 
         return $savedPerson;

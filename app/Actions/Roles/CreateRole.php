@@ -2,6 +2,7 @@
 
 namespace App\Actions\Roles;
 
+use App\Activity\ActivityLogger;
 use App\Models\User;
 use App\RoleName;
 use Illuminate\Database\Eloquent\Collection;
@@ -14,6 +15,8 @@ use Spatie\Permission\PermissionRegistrar;
 class CreateRole
 {
     private const GUARD = 'web';
+
+    public function __construct(private readonly ActivityLogger $activityLogger) {}
 
     /**
      * @param  list<string>  $permissionNames
@@ -39,6 +42,18 @@ class CreateRole
         });
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $this->activityLogger->log(
+            logName: 'roles',
+            event: 'role.created',
+            description: "Created role {$role->name}.",
+            subject: $role,
+            causer: $actor,
+            newValues: [
+                'name' => $role->name,
+                'permissions' => $role->permissions->pluck('name')->sort()->values()->all(),
+            ],
+        );
 
         return $role;
     }

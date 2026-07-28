@@ -3,13 +3,17 @@
 namespace App\Providers;
 
 use App\Http\Middleware\EnsurePasswordHasBeenChanged;
+use App\Listeners\AuthenticationActivitySubscriber;
 use App\Models\User;
 use App\Policies\RolePolicy;
 use App\RoleName;
+use App\View\Composers\PublicSettingsComposer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Livewire;
@@ -32,6 +36,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureAuthorization();
+
+        Event::subscribe(AuthenticationActivitySubscriber::class);
+
+        View::composer(['welcome', 'components.app-logo'], PublicSettingsComposer::class);
 
         Livewire::addPersistentMiddleware([
             EnsurePasswordHasBeenChanged::class,

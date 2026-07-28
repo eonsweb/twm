@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Users\CreateAdminUser;
+use App\Activity\ActivityLogger;
 use App\Concerns\PasswordValidationRules;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
@@ -24,7 +25,7 @@ new #[Layout('layouts.auth'), Title('Change temporary password')] class extends 
         }
     }
 
-    public function updatePassword(): void
+    public function updatePassword(ActivityLogger $activityLogger): void
     {
         $validated = $this->validate([
             'password' => [
@@ -39,6 +40,18 @@ new #[Layout('layouts.auth'), Title('Change temporary password')] class extends 
             'password' => $validated['password'],
             'must_change_password' => false,
         ]);
+
+        $activityLogger->log(
+            logName: 'authentication',
+            event: 'password.temporary_changed',
+            description: 'Replaced the temporary account password.',
+            subject: Auth::user(),
+            causer: Auth::user(),
+            properties: [
+                'password' => 'Changed',
+                'must_change_password' => false,
+            ],
+        );
 
         if (request()->hasSession()) {
             request()->session()->regenerate();

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\LogsActivity;
 use Database\Factories\LeadershipPositionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 #[Fillable([
     'name',
@@ -20,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class LeadershipPosition extends Model
 {
     /** @use HasFactory<LeadershipPositionFactory> */
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     /**
      * @var array<string, mixed>
@@ -63,6 +65,16 @@ class LeadershipPosition extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    protected function activityLogName(): string
+    {
+        return 'leadership';
+    }
+
+    protected function activityDescription(string $event): string
+    {
+        return Str::headline($event)." leadership position {$this->name}.";
     }
 
     /**

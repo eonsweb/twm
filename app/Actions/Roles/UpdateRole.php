@@ -2,6 +2,7 @@
 
 namespace App\Actions\Roles;
 
+use App\Activity\ActivityLogger;
 use App\Models\User;
 use App\RoleName;
 use Illuminate\Database\Eloquent\Collection;
@@ -15,11 +16,17 @@ class UpdateRole
 {
     private const GUARD = 'web';
 
+    public function __construct(private readonly ActivityLogger $activityLogger) {}
+
     /**
      * @param  list<string>  $permissionNames
      */
     public function handle(User $actor, Role $role, string $name, array $permissionNames): Role
     {
+        $oldValues = [
+            'name' => $role->name,
+            'permissions' => $role->permissions()->orderBy('name')->pluck('name')->all(),
+        ];
         $permissions = $this->validatedPermissions($actor, $permissionNames);
 
         $updatedRole = DB::transaction(function () use ($role, $name, $permissions): Role {
@@ -54,6 +61,23 @@ class UpdateRole
         });
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $newValues = [
+            'name' => $updatedRole->name,
+            'permissions' => $updatedRole->permissions->pluck('name')->sort()->values()->all(),
+        ];
+
+        if ($oldValues !== $newValues) {
+            $this->activityLogger->log(
+                logName: 'roles',
+                event: 'role.updated',
+                description: "Updated role {$updatedRole->name} and its permission matrix.",
+                subject: $updatedRole,
+                causer: $actor,
+                oldValues: $oldValues,
+                newValues: $newValues,
+            );
+        }
 
         return $updatedRole;
     }

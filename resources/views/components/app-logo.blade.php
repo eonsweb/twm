@@ -2,6 +2,10 @@
     'sidebar' => false,
 ])
 
+@php
+    $churchName = data_get($publicSettings ?? [], 'church.official_name', config('app.name'));
+@endphp
+
 @if ($sidebar)
     <a
         {{ $attributes->class([
@@ -10,13 +14,13 @@
     >
         <x-app-logo-icon class="size-11 shrink-0 text-church-gold-400" />
         <span class="text-sm font-semibold leading-5">
-            <span class="block">{{ __('Triumphant') }}</span>
-            <span class="block">{{ __('World Ministry') }}</span>
+            <span class="block max-w-36 text-balance">{{ $churchName }}</span>
+            <span class="block text-xs font-normal text-white/70">{{ __('Administration') }}</span>
         </span>
     </a>
 @else
     <a {{ $attributes->class(['flex items-center gap-2 font-semibold text-church-maroon-900 dark:text-white']) }}>
         <x-app-logo-icon class="size-9 text-church-gold-500" />
-        <span>{{ __('Triumphant World Ministry') }}</span>
+        <span>{{ $churchName }}</span>
     </a>
 @endif

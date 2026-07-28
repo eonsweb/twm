@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AttachRequestContext;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsurePasswordHasBeenChanged;
 use Illuminate\Foundation\Application;
@@ -17,6 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->web(append: [
+            AttachRequestContext::class,
+        ]);
+
         $middleware->alias([
             'account.active' => EnsureAccountIsActive::class,
             'password.changed' => EnsurePasswordHasBeenChanged::class,

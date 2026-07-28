@@ -1,10 +1,15 @@
 <?php
 
+use App\Http\Controllers\ActivityLogExportController;
+use App\Http\Middleware\EnforcePublicWebsiteAvailability;
 use App\PermissionName;
+use App\SystemSettingSection;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 
-Route::view('/', 'welcome')->name('home');
+Route::view('/', 'welcome')
+    ->middleware(EnforcePublicWebsiteAvailability::class)
+    ->name('home');
 
 Route::livewire('password/change-required', 'pages::auth.force-password-change')
     ->middleware(['auth', 'account.active'])
@@ -38,6 +43,26 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'verified'])->g
         Route::livewire('roles/{role}/edit', 'pages::roles.edit')
             ->middleware(PermissionMiddleware::using(PermissionName::RolesUpdate))
             ->name('roles.edit');
+
+        Route::prefix('admin/settings')->name('settings.')->group(function (): void {
+            Route::redirect('/', '/admin/settings/general')
+                ->middleware(PermissionMiddleware::using(PermissionName::SettingsView))
+                ->name('index');
+
+            foreach (SystemSettingSection::cases() as $section) {
+                $route = Route::livewire($section->value, 'pages::admin.settings.show')
+                    ->defaults('section', $section->value)
+                    ->middleware([
+                        PermissionMiddleware::using(PermissionName::SettingsView),
+                        PermissionMiddleware::using($section->permission()),
+                    ])
+                    ->name($section->value);
+
+                if ($section->requiresPasswordConfirmation()) {
+                    $route->middleware('password.confirm');
+                }
+            }
+        });
     });
 
     Route::livewire('leadership', 'pages::leadership.index')
@@ -55,6 +80,16 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'verified'])->g
     Route::livewire('leadership/{person}/edit', 'pages::leadership.edit')
         ->middleware(PermissionMiddleware::using(PermissionName::LeadershipUpdate))
         ->name('leadership.edit');
+
+    Route::livewire('admin/activity-logs', 'pages::activity-logs.index')
+        ->middleware(PermissionMiddleware::using(PermissionName::ActivityLogsView))
+        ->name('activity-logs.index');
+    Route::get('admin/activity-logs/export', ActivityLogExportController::class)
+        ->middleware([
+            PermissionMiddleware::using(PermissionName::ActivityLogsExport),
+            'password.confirm',
+        ])
+        ->name('activity-logs.export');
 });
 
 require __DIR__.'/settings.php';

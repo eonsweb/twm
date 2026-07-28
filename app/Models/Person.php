@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\LogsActivity;
 use Database\Factories\PersonFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -59,7 +60,7 @@ use Illuminate\Support\Carbon;
 class Person extends Model
 {
     /** @use HasFactory<PersonFactory> */
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     /**
      * @var array<string, mixed>
@@ -152,6 +153,27 @@ class Person extends Model
             $this->middle_name,
             $this->last_name,
         ])->filter()->implode(' '));
+    }
+
+    protected function activityLogName(): string
+    {
+        return 'leadership';
+    }
+
+    protected function activitySubjectName(): string
+    {
+        return $this->full_name;
+    }
+
+    protected function activityDescription(string $event): string
+    {
+        return match ($event) {
+            'created' => "Created leadership profile for {$this->full_name}.",
+            'updated' => "Updated leadership profile for {$this->full_name}.",
+            'deleted' => "Deleted leadership profile for {$this->full_name}.",
+            'restored' => "Restored leadership profile for {$this->full_name}.",
+            default => "Changed leadership profile for {$this->full_name}.",
+        };
     }
 
     /**

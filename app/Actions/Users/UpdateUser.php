@@ -2,6 +2,7 @@
 
 namespace App\Actions\Users;
 
+use App\Activity\ActivityLogger;
 use App\Models\Person;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -12,7 +13,10 @@ use Throwable;
 
 class UpdateUser
 {
-    public function __construct(private SyncUserRoles $syncUserRoles) {}
+    public function __construct(
+        private readonly SyncUserRoles $syncUserRoles,
+        private readonly ActivityLogger $activityLogger,
+    ) {}
 
     /**
      * @param  array{name: string, username: string, email: string}  $data
@@ -27,6 +31,7 @@ class UpdateUser
         ?UploadedFile $photo = null,
         bool $removePhoto = false,
     ): User {
+        $oldValues = $user->only(['name', 'username', 'email', 'photo']);
         $oldPhotoPath = $user->photo;
         $newPhotoPath = $this->storePhoto($photo);
 
@@ -70,6 +75,24 @@ class UpdateUser
 
         if (($newPhotoPath !== null || $removePhoto) && $oldPhotoPath !== null) {
             Storage::disk('public')->delete($oldPhotoPath);
+        }
+
+        $newValues = $savedUser->only(['name', 'username', 'email', 'photo']);
+        $changedKeys = collect($newValues)
+            ->filter(fn (mixed $value, string $key): bool => $oldValues[$key] !== $value)
+            ->keys()
+            ->all();
+
+        if ($changedKeys !== []) {
+            $this->activityLogger->log(
+                logName: 'users',
+                event: 'user.updated',
+                description: "Updated user {$savedUser->name}.",
+                subject: $savedUser,
+                causer: $actor,
+                oldValues: collect($oldValues)->only($changedKeys)->all(),
+                newValues: collect($newValues)->only($changedKeys)->all(),
+            );
         }
 
         return $savedUser;

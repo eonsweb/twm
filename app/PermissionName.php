@@ -78,8 +78,24 @@ enum PermissionName: string
 
     case SettingsView = 'settings.view';
     case SettingsUpdate = 'settings.update';
+    case SettingsGeneralUpdate = 'settings.general.update';
+    case SettingsChurchUpdate = 'settings.church.update';
+    case SettingsContactUpdate = 'settings.contact.update';
+    case SettingsServiceTimesUpdate = 'settings.service-times.update';
+    case SettingsBrandingUpdate = 'settings.branding.update';
+    case SettingsSocialUpdate = 'settings.social.update';
+    case SettingsEmailUpdate = 'settings.email.update';
+    case SettingsDonationsUpdate = 'settings.donations.update';
+    case SettingsIntegrationsUpdate = 'settings.integrations.update';
+    case SettingsSecurityUpdate = 'settings.security.update';
+    case SettingsMaintenanceUpdate = 'settings.maintenance.update';
+    case SettingsLocalizationUpdate = 'settings.localization.update';
 
     case ActivityLogsView = 'activity-logs.view';
+    case ActivityLogsViewDetails = 'activity-logs.view-details';
+    case ActivityLogsExport = 'activity-logs.export';
+    case ActivityLogsDelete = 'activity-logs.delete';
+    case ActivityLogsPrune = 'activity-logs.prune';
 
     case WebsiteContentView = 'website-content.view';
     case WebsiteContentUpdate = 'website-content.update';

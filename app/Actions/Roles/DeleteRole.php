@@ -2,6 +2,7 @@
 
 namespace App\Actions\Roles;
 
+use App\Activity\ActivityLogger;
 use App\RoleName;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -10,8 +11,15 @@ use Spatie\Permission\PermissionRegistrar;
 
 class DeleteRole
 {
+    public function __construct(private readonly ActivityLogger $activityLogger) {}
+
     public function handle(Role $role): void
     {
+        $oldValues = [
+            'name' => $role->name,
+            'permissions' => $role->permissions()->orderBy('name')->pluck('name')->all(),
+        ];
+
         DB::transaction(function () use ($role): void {
             $lockedRole = Role::query()
                 ->lockForUpdate()
@@ -40,5 +48,13 @@ class DeleteRole
         });
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $this->activityLogger->log(
+            logName: 'roles',
+            event: 'role.deleted',
+            description: "Deleted role {$role->name}.",
+            subject: $role,
+            oldValues: $oldValues,
+        );
     }
 }

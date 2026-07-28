@@ -2,6 +2,7 @@
 
 namespace App\Actions\Users;
 
+use App\Activity\ActivityLogger;
 use App\Models\User;
 use App\PermissionName;
 use App\RoleName;
@@ -13,13 +14,18 @@ use Spatie\Permission\Models\Role;
 
 class SyncUserRoles
 {
-    public function __construct(private ProtectSuperAdmin $protectSuperAdmin) {}
+    public function __construct(
+        private readonly ProtectSuperAdmin $protectSuperAdmin,
+        private readonly ActivityLogger $activityLogger,
+    ) {}
 
     /**
      * @param  list<int>  $roleIds
      */
     public function handle(User $actor, User $target, array $roleIds): void
     {
+        $oldRoleNames = $target->roles()->orderBy('name')->pluck('name')->all();
+
         DB::transaction(function () use ($actor, $target, $roleIds): void {
             $lockedTarget = User::query()
                 ->lockForUpdate()
@@ -48,6 +54,24 @@ class SyncUserRoles
 
             $lockedTarget->syncRoles($roles);
         });
+
+        $newRoleNames = $target->refresh()->roles()->orderBy('name')->pluck('name')->all();
+
+        if ($oldRoleNames !== $newRoleNames) {
+            $this->activityLogger->log(
+                logName: 'users',
+                event: 'user.roles_updated',
+                description: "Updated role assignments for {$target->name}.",
+                subject: $target,
+                causer: $actor,
+                properties: [
+                    'assigned' => array_values(array_diff($newRoleNames, $oldRoleNames)),
+                    'removed' => array_values(array_diff($oldRoleNames, $newRoleNames)),
+                ],
+                oldValues: ['roles' => $oldRoleNames],
+                newValues: ['roles' => $newRoleNames],
+            );
+        }
     }
 
     /**

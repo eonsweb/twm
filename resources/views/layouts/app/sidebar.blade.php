@@ -79,7 +79,7 @@
                     \App\PermissionName::ActivityLogsView->value,
                 ])
                     <flux:sidebar.group :heading="__('System')" class="admin-sidebar-group grid">
-                        <x-admin.nav-item :label="__('Settings')" icon="cog-6-tooth" :permission="\App\PermissionName::SettingsView->value" route-name="admin.settings.edit" active-pattern="admin.settings.*" />
+                        <x-admin.nav-item :label="__('Settings')" icon="cog-6-tooth" :permission="\App\PermissionName::SettingsView->value" route-name="admin.settings.general" active-pattern="admin.settings.*" />
                         <x-admin.nav-item :label="__('Activity logs')" icon="clipboard-document-list" :permission="\App\PermissionName::ActivityLogsView->value" route-name="activity-logs.index" active-pattern="activity-logs.*" />
                     </flux:sidebar.group>
                 @endcanany
