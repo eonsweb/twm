@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Ministry;
+use App\Models\Post;
 use App\Models\Sermon;
 use App\Models\User;
 use App\PermissionName;
@@ -43,16 +45,16 @@ new #[Title('Dashboard')] class extends Component
             ],
             [
                 'label' => __('Ministries'),
-                'value' => '—',
-                'caption' => __('Content module coming soon'),
+                'value' => Ministry::query()->published()->count(),
+                'caption' => __('Published ministries'),
                 'icon' => 'user-group',
                 'tone' => 'green',
                 'permission' => PermissionName::MinistriesView->value,
             ],
             [
                 'label' => __('Blog posts'),
-                'value' => '—',
-                'caption' => __('Content module coming soon'),
+                'value' => Post::query()->publiclyVisible()->count(),
+                'caption' => __('Published public articles'),
                 'icon' => 'document-text',
                 'tone' => 'purple',
                 'permission' => PermissionName::PostsView->value,

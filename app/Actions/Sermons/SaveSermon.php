@@ -25,6 +25,7 @@ class SaveSermon
     /**
      * @param  array<string, mixed>  $data
      * @param  list<int>  $topicIds
+     * @param  list<int>  $ministryIds
      */
     public function handle(
         User $actor,
@@ -33,6 +34,7 @@ class SaveSermon
         ?UploadedFile $thumbnail = null,
         bool $removeThumbnail = false,
         ?Sermon $sermon = null,
+        array $ministryIds = [],
     ): Sermon {
         $creating = $sermon === null;
         Gate::forUser($actor)->authorize($creating ? 'create' : 'update', $sermon ?? Sermon::class);
@@ -53,11 +55,12 @@ class SaveSermon
         $data['updated_by'] = $actor->id;
 
         try {
-            $savedSermon = DB::transaction(function () use ($sermon, $data, $topicIds): Sermon {
+            $savedSermon = DB::transaction(function () use ($sermon, $data, $topicIds, $ministryIds): Sermon {
                 $sermon->fill($data)->save();
                 $sermon->topics()->sync($topicIds);
+                $sermon->ministries()->sync($ministryIds);
 
-                return $sermon->refresh()->load(['speaker:id,title,first_name,middle_name,last_name', 'series:id,title', 'topics:id,name']);
+                return $sermon->refresh()->load(['speaker:id,title,first_name,middle_name,last_name', 'series:id,title', 'topics:id,name', 'ministries:id,name']);
             });
         } catch (Throwable $exception) {
             if ($newThumbnailPath !== null) {

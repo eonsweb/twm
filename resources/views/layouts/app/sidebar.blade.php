@@ -37,7 +37,6 @@
                     \App\PermissionName::EventsView->value,
                     \App\PermissionName::MinistriesView->value,
                     \App\PermissionName::LeadershipView->value,
-                    \App\PermissionName::PostsView->value,
                     \App\PermissionName::MediaView->value,
                     \App\PermissionName::PagesView->value,
                 ])
@@ -47,11 +46,30 @@
                         <x-admin.nav-item :label="__('Sermon speakers')" icon="microphone" :permission="\App\PermissionName::SermonsView->value" route-name="speakers.index" active-pattern="speakers.*" />
                         <x-admin.nav-item :label="__('Sermon topics')" icon="tag" :permission="\App\PermissionName::SermonsView->value" route-name="sermon-topics.index" active-pattern="sermon-topics.*" />
                         <x-admin.nav-item :label="__('Events')" icon="calendar-days" :permission="\App\PermissionName::EventsView->value" route-name="events.index" active-pattern="events.*" />
+                        <x-admin.nav-item :label="__('Event types')" icon="tag" :permission="\App\PermissionName::EventTypesView->value" route-name="event-types.index" active-pattern="event-types.*" />
                         <x-admin.nav-item :label="__('Ministries')" icon="user-group" :permission="\App\PermissionName::MinistriesView->value" route-name="ministries.index" active-pattern="ministries.*" />
                         <x-admin.nav-item :label="__('Leadership')" icon="identification" :permission="\App\PermissionName::LeadershipView->value" route-name="leadership.index" active-pattern="leadership.*" />
-                        <x-admin.nav-item :label="__('Blog posts')" icon="document-text" :permission="\App\PermissionName::PostsView->value" route-name="posts.index" active-pattern="posts.*" />
                         <x-admin.nav-item :label="__('Media library')" icon="photo" :permission="\App\PermissionName::MediaView->value" route-name="media.index" active-pattern="media.*" />
                         <x-admin.nav-item :label="__('Pages')" icon="document-duplicate" :permission="\App\PermissionName::PagesView->value" route-name="pages.index" active-pattern="pages.*" />
+                    </flux:sidebar.group>
+                @endcanany
+
+                @canany([
+                    \App\PermissionName::PostsView->value,
+                    \App\PermissionName::PostsCreate->value,
+                    \App\PermissionName::PostCategoriesManage->value,
+                    \App\PermissionName::PostTagsManage->value,
+                ])
+                    <flux:sidebar.group :heading="__('Blog')" class="admin-sidebar-group grid">
+                        <x-admin.nav-item :label="__('All posts')" icon="document-text" :permission="\App\PermissionName::PostsView->value" route-name="posts.index" active-pattern="posts.*" />
+                        <x-admin.nav-item :label="__('Add new post')" icon="document-plus" :permission="\App\PermissionName::PostsCreate->value" route-name="posts.create" active-pattern="posts.create" />
+                        <x-admin.nav-item :label="__('Categories')" icon="folder" :permission="\App\PermissionName::PostCategoriesManage->value" route-name="post-categories.index" active-pattern="post-categories.*" />
+                        <x-admin.nav-item :label="__('Tags')" icon="tag" :permission="\App\PermissionName::PostTagsManage->value" route-name="post-tags.index" active-pattern="post-tags.*" />
+                        @can(\App\PermissionName::PostsView->value)
+                            <flux:sidebar.item icon="trash" :href="route('posts.index', ['status' => 'deleted'])" :current="request()->routeIs('posts.index') && request('status') === 'deleted'" class="admin-sidebar-item" wire:navigate>
+                                {{ __('Trash') }}
+                            </flux:sidebar.item>
+                        @endcan
                     </flux:sidebar.group>
                 @endcanany
 

@@ -3,6 +3,7 @@
 use App\Actions\Sermons\SaveSermon;
 use App\Livewire\Forms\SermonForm;
 use App\Models\Person;
+use App\Models\Ministry;
 use App\Models\Sermon;
 use App\Models\SermonSeries;
 use App\Models\Topic;
@@ -45,6 +46,12 @@ new #[Title('Create Sermon')] class extends Component
         return Topic::query()->active()->orderBy('name')->get();
     }
 
+    #[Computed]
+    public function ministries()
+    {
+        return Ministry::query()->active()->ordered()->get(['id', 'name']);
+    }
+
     public function inspectMedia(ExternalMedia $externalMedia): void
     {
         $this->form->normalize($externalMedia);
@@ -75,6 +82,7 @@ new #[Title('Create Sermon')] class extends Component
             $this->form->sermonData(),
             $this->form->topicIds,
             $this->form->thumbnail,
+            ministryIds: $this->form->ministryIds,
         );
 
         session()->flash('success', __('Sermon created.'));
@@ -93,7 +101,7 @@ new #[Title('Create Sermon')] class extends Component
     <x-admin.page-header :title="__('Create sermon')" :description="__('Add an externally hosted sermon and control when it becomes public.')" :eyebrow="__('Sermons')" />
 
     <form wire:submit="save" class="space-y-6">
-        <x-admin.sermon-form :form="$form" :speakers="$this->speakers" :series="$this->series" :topics="$this->topics" />
+        <x-admin.sermon-form :form="$form" :speakers="$this->speakers" :series="$this->series" :topics="$this->topics" :ministries="$this->ministries" />
         <div class="sticky bottom-4 z-20 flex flex-wrap justify-end gap-3 rounded-xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
             <flux:button :href="route('sermons.index')" variant="ghost" wire:navigate>{{ __('Cancel') }}</flux:button>
             <flux:button type="button" wire:click="saveDraft" wire:loading.attr="disabled">{{ __('Save as draft') }}</flux:button>

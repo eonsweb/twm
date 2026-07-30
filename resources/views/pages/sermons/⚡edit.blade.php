@@ -3,6 +3,7 @@
 use App\Actions\Sermons\SaveSermon;
 use App\Livewire\Forms\SermonForm;
 use App\Models\Person;
+use App\Models\Ministry;
 use App\Models\Sermon;
 use App\Models\SermonSeries;
 use App\Models\Topic;
@@ -49,6 +50,12 @@ new #[Title('Edit Sermon')] class extends Component
         return Topic::query()->active()->orderBy('name')->get();
     }
 
+    #[Computed]
+    public function ministries()
+    {
+        return Ministry::query()->active()->ordered()->get(['id', 'name']);
+    }
+
     public function inspectMedia(ExternalMedia $externalMedia): void
     {
         $this->form->normalize($externalMedia);
@@ -81,6 +88,7 @@ new #[Title('Edit Sermon')] class extends Component
             $this->form->thumbnail,
             $this->form->removeThumbnail,
             $this->sermon,
+            ministryIds: $this->form->ministryIds,
         );
         $this->form->setSermon($this->sermon);
         $this->form->thumbnail = null;
@@ -113,6 +121,7 @@ new #[Title('Edit Sermon')] class extends Component
             :speakers="$this->speakers"
             :series="$this->series"
             :topics="$this->topics"
+            :ministries="$this->ministries"
             :current-thumbnail-url="$sermon->thumbnailUrl()"
         />
         <div class="sticky bottom-4 z-20 flex flex-wrap justify-end gap-3 rounded-xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">

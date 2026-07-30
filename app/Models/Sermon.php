@@ -110,6 +110,12 @@ class Sermon extends Model
         return $this->belongsToMany(Topic::class);
     }
 
+    /** @return BelongsToMany<Ministry, $this> */
+    public function ministries(): BelongsToMany
+    {
+        return $this->belongsToMany(Ministry::class)->withTimestamps();
+    }
+
     /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {

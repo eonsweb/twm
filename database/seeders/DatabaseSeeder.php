@@ -17,8 +17,15 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UserSeeder::class,
             RolesAndPermissionsSeeder::class,
+            MediaFolderSeeder::class,
             SystemSettingSeeder::class,
             LeadershipSeeder::class,
+            MinistrySeeder::class,
+            PostCategorySeeder::class,
+            TagSeeder::class,
+            PostSeeder::class,
+            EventTypeSeeder::class,
+            EventSeeder::class,
         ]);
     }
 }

@@ -17,6 +17,9 @@
                 <nav aria-label="{{ __('Main navigation') }}" class="flex items-center gap-4 text-sm font-semibold">
                     <a href="{{ route('home') }}" class="hover:text-church-maroon-700 dark:hover:text-church-gold-400" wire:navigate>{{ __('Home') }}</a>
                     <a href="{{ route('public.sermons.index') }}" class="hover:text-church-maroon-700 dark:hover:text-church-gold-400" wire:navigate>{{ __('Sermons') }}</a>
+                    <a href="{{ route('public.events.index') }}" class="hover:text-church-maroon-700 dark:hover:text-church-gold-400" wire:navigate>{{ __('Events') }}</a>
+                    <a href="{{ route('public.ministries.index') }}" class="hidden hover:text-church-maroon-700 sm:inline dark:hover:text-church-gold-400" wire:navigate>{{ __('Ministries') }}</a>
+                    <a href="{{ route('blog.index') }}" class="hover:text-church-maroon-700 dark:hover:text-church-gold-400" wire:navigate>{{ __('Blog') }}</a>
                     @auth
                         <a href="{{ route('dashboard') }}" class="rounded-lg bg-church-maroon-900 px-3 py-2 text-white hover:bg-church-maroon-800" wire:navigate>{{ __('Dashboard') }}</a>
                     @endauth

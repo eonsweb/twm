@@ -39,12 +39,20 @@ enum PermissionName: string
     case EventsCreate = 'events.create';
     case EventsUpdate = 'events.update';
     case EventsDelete = 'events.delete';
+    case EventsRestore = 'events.restore';
     case EventsPublish = 'events.publish';
+    case EventsCancel = 'events.cancel';
+    case EventTypesView = 'event-types.view';
+    case EventTypesCreate = 'event-types.create';
+    case EventTypesUpdate = 'event-types.update';
+    case EventTypesDelete = 'event-types.delete';
 
     case MinistriesView = 'ministries.view';
     case MinistriesCreate = 'ministries.create';
     case MinistriesUpdate = 'ministries.update';
     case MinistriesDelete = 'ministries.delete';
+    case MinistriesRestore = 'ministries.restore';
+    case MinistriesForceDelete = 'ministries.force-delete';
     case MinistriesPublish = 'ministries.publish';
 
     case LeadershipView = 'leadership.view';
@@ -59,11 +67,24 @@ enum PermissionName: string
     case PostsUpdate = 'posts.update';
     case PostsDelete = 'posts.delete';
     case PostsPublish = 'posts.publish';
+    case PostsRestore = 'posts.restore';
+    case PostsForceDelete = 'posts.force-delete';
+    case PostsArchive = 'posts.archive';
+    case PostsPreview = 'posts.preview';
+    case PostsManageAuthors = 'posts.manage-authors';
+    case PostCategoriesManage = 'post-categories.manage';
+    case PostTagsManage = 'post-tags.manage';
 
     case MediaView = 'media.view';
+    case MediaCreate = 'media.create';
     case MediaUpload = 'media.upload';
     case MediaUpdate = 'media.update';
     case MediaDelete = 'media.delete';
+    case MediaRestore = 'media.restore';
+    case MediaForceDelete = 'media.force-delete';
+    case MediaDownload = 'media.download';
+    case MediaManageFolders = 'media.manage-folders';
+    case MediaManagePrivate = 'media.manage-private';
 
     case PagesView = 'pages.view';
     case PagesCreate = 'pages.create';

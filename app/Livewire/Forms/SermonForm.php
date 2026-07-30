@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Forms;
 
+use App\Models\Ministry;
 use App\Models\Person;
 use App\Models\Sermon;
 use App\Models\SermonSeries;
@@ -54,8 +55,11 @@ class SermonForm extends Form
 
     public int|string|null $sermonSeriesId = null;
 
-    /** @var list<int|string> */
+    /** @var array<int, int|string> */
     public array $topicIds = [];
+
+    /** @var list<int|string> */
+    public array $ministryIds = [];
 
     public string $serviceName = '';
 
@@ -77,7 +81,7 @@ class SermonForm extends Form
 
     public function setSermon(Sermon $sermon): void
     {
-        $sermon->loadMissing('topics:id');
+        $sermon->loadMissing(['topics:id', 'ministries:id']);
         $this->sermonId = $sermon->id;
         $this->title = $sermon->title;
         $this->slug = $sermon->slug;
@@ -97,6 +101,7 @@ class SermonForm extends Form
         $this->topicIds = array_values(
             $sermon->topics->map(fn (Topic $topic): int => $topic->id)->all(),
         );
+        $this->ministryIds = array_values($sermon->ministries->modelKeys());
         $this->serviceName = $sermon->service_name ?? '';
         $this->location = $sermon->location ?? '';
         $this->status = $sermon->status->value;
@@ -132,6 +137,11 @@ class SermonForm extends Form
                 ->unique()
                 ->all(),
         );
+        $this->ministryIds = array_values(collect($this->ministryIds)
+            ->map(fn (int|string $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all());
 
         try {
             $media = $externalMedia->inspect($this->externalMediaUrl);
@@ -183,6 +193,8 @@ class SermonForm extends Form
             'sermonSeriesId' => ['nullable', 'integer', Rule::exists(SermonSeries::class, 'id')->withoutTrashed()],
             'topicIds' => ['array', 'max:20'],
             'topicIds.*' => ['integer', 'distinct', Rule::exists(Topic::class, 'id')->where('is_active', true)],
+            'ministryIds' => ['array', 'max:20'],
+            'ministryIds.*' => ['integer', 'distinct', Rule::exists(Ministry::class, 'id')->withoutTrashed()],
             'serviceName' => ['nullable', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
             'status' => ['required', Rule::enum(SermonStatus::class)],

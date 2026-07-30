@@ -3,6 +3,7 @@
     'speakers',
     'series',
     'topics',
+    'ministries' => [],
     'currentThumbnailUrl' => null,
 ])
 
@@ -49,6 +50,14 @@
                         @endforelse
                     </div>
                     <flux:error name="form.topicIds" />
+                </flux:field>
+                <flux:field>
+                    <flux:label>{{ __('Related ministries') }}</flux:label>
+                    <div class="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-2 dark:border-zinc-700">
+                        @foreach ($ministries as $ministry)
+                            <flux:checkbox wire:model="form.ministryIds" :value="$ministry->id" :label="$ministry->name" wire:key="sermon-ministry-{{ $ministry->id }}" />
+                        @endforeach
+                    </div>
                 </flux:field>
             </div>
         </section>

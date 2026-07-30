@@ -132,4 +132,30 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     {
         return $this->hasMany(Sermon::class, 'created_by');
     }
+
+    /**
+     * @return HasMany<Event, $this>
+     */
+    public function createdEvents(): HasMany
+    {
+        return $this->hasMany(Event::class, 'created_by');
+    }
+
+    /** @return HasMany<Ministry, $this> */
+    public function createdMinistries(): HasMany
+    {
+        return $this->hasMany(Ministry::class, 'created_by');
+    }
+
+    /** @return HasMany<Post, $this> */
+    public function posts(): HasMany
+    {
+        return $this->hasMany(Post::class, 'author_id');
+    }
+
+    /** @return HasMany<Media, $this> */
+    public function uploadedMedia(): HasMany
+    {
+        return $this->hasMany(Media::class, 'uploaded_by');
+    }
 }

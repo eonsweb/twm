@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Carbon;
 
 /**
@@ -35,6 +36,7 @@ use Illuminate\Support\Carbon;
  * @property bool $is_active
  * @property bool $is_public
  * @property-read string $full_name
+ * @property-read Pivot|null $pivot
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -130,6 +132,14 @@ class Person extends Model
     public function sermons(): HasMany
     {
         return $this->hasMany(Sermon::class, 'speaker_id');
+    }
+
+    /** @return BelongsToMany<Ministry, $this> */
+    public function ministries(): BelongsToMany
+    {
+        return $this->belongsToMany(Ministry::class)
+            ->withPivot(['role_title', 'is_primary', 'display_order'])
+            ->withTimestamps();
     }
 
     /**
