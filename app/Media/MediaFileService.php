@@ -44,14 +44,14 @@ class MediaFileService
     ): Media {
         [$type, $extension, $mimeType] = $this->inspect($file);
         $disk = $visibility === MediaVisibility::Private
-            ? (string) config('media.private_disk')
-            : (string) config('media.disk');
+            ? (string) config('media.private_disk', 'local')
+            : (string) config('media.disk', 'public');
         $directory = 'media/'.$this->directoryName($type).'/'.now()->format('Y/m');
         $fileName = Str::uuid()->toString().'.'.$extension;
         $path = $file->storeAs($directory, $fileName, $disk);
 
-        if (! is_string($path)) {
-            throw new RuntimeException('The file could not be stored.');
+        if (! is_string($path) || $path === '' || ! Storage::disk($disk)->exists($path)) {
+            throw new RuntimeException('Media could not be stored permanently.');
         }
 
         try {

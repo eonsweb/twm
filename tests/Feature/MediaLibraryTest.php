@@ -15,6 +15,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -89,14 +90,111 @@ test('multiple files can be uploaded through the library component', function ()
 
     Livewire::actingAs($user)
         ->test('pages::media.index')
+        ->set('showUploadModal', true)
         ->set('files', [
             UploadedFile::fake()->image('first.jpg'),
             UploadedFile::fake()->image('second.png'),
         ])
-        ->call('upload')
-        ->assertHasNoErrors();
+        ->assertSet('files.0', fn (mixed $file): bool => $file instanceof TemporaryUploadedFile)
+        ->assertSee('temporaryUploading || false', escape: false)
+        ->call('saveMedia')
+        ->assertHasNoErrors()
+        ->assertSet('files', [])
+        ->assertSet('showUploadModal', false)
+        ->assertDispatched('toast-show');
 
-    expect(Media::query()->count())->toBe(2);
+    $storedMedia = Media::query()->orderBy('id')->get();
+
+    expect($storedMedia)->toHaveCount(2);
+
+    foreach ($storedMedia as $media) {
+        expect($media->disk)->toBe('public')
+            ->and($media->path)->toMatch('#^media/images/\d{4}/\d{2}/[0-9a-f-]+\.(jpg|png)$#')
+            ->and($media->path)->not->toContain(storage_path());
+        Storage::disk('public')->assertExists($media->path);
+    }
+});
+
+test('the upload interface exposes distinct temporary and permanent loading states', function (): void {
+    $user = mediaUser(PermissionName::MediaView, PermissionName::MediaCreate);
+
+    $this->actingAs($user)
+        ->get(route('media.index'))
+        ->assertOk()
+        ->assertSee('x-on:livewire-upload-start', escape: false)
+        ->assertSee('x-on:livewire-upload-finish', escape: false)
+        ->assertSee('x-on:livewire-upload-error', escape: false)
+        ->assertSee('x-on:livewire-upload-cancel', escape: false)
+        ->assertSee('wire:submit="saveMedia"', escape: false)
+        ->assertSee('wire:target="saveMedia"', escape: false)
+        ->assertDontSee('wire:click="saveMedia"', escape: false)
+        ->assertSee('$wire.$cancelUpload', escape: false);
+});
+
+test('temporary upload validation supports the largest configured media type', function (): void {
+    $rules = config('livewire.temporary_file_upload.rules');
+
+    expect($rules)->toBeArray()
+        ->and($rules)->toContain('max:'.app(MediaFileService::class)->maximumKilobytes());
+});
+
+test('closing the upload modal clears temporary files and validation errors', function (): void {
+    $user = mediaUser(PermissionName::MediaView, PermissionName::MediaCreate);
+
+    Livewire::actingAs($user)
+        ->test('pages::media.index')
+        ->set('showUploadModal', true)
+        ->call('saveMedia')
+        ->assertHasErrors(['files'])
+        ->call('closeUploadModal')
+        ->assertHasNoErrors()
+        ->assertSet('files', [])
+        ->assertSet('showUploadModal', false);
+});
+
+test('a missing permanent storage disk produces a recoverable per-file error', function (): void {
+    $user = mediaUser(PermissionName::MediaView, PermissionName::MediaCreate);
+    config()->set('media.disk', 'missing-media-disk');
+
+    Livewire::actingAs($user)
+        ->test('pages::media.index')
+        ->set('showUploadModal', true)
+        ->set('files', [UploadedFile::fake()->image('failure.png')])
+        ->call('saveMedia')
+        ->assertHasErrors(['files.0'])
+        ->assertSet('showUploadModal', true)
+        ->assertDispatched('toast-show');
+
+    expect(Media::query()->count())->toBe(0);
+});
+
+test('a failed new upload preserves previously stored media', function (): void {
+    $user = mediaUser(PermissionName::MediaView, PermissionName::MediaCreate);
+    $existing = storeTestMedia($user);
+    config()->set('media.disk', 'missing-media-disk');
+
+    Livewire::actingAs($user)
+        ->test('pages::media.index')
+        ->set('files', [UploadedFile::fake()->image('new-failure.png')])
+        ->call('saveMedia')
+        ->assertHasErrors(['files.0']);
+
+    expect(Media::query()->pluck('id')->all())->toBe([$existing->id]);
+    Storage::disk('public')->assertExists($existing->path);
+});
+
+test('a database failure cleans up the newly stored physical file', function (): void {
+    $user = mediaUser(PermissionName::MediaCreate);
+    $originalConnection = config('database.default');
+    config()->set('database.default', 'missing-media-database');
+
+    try {
+        expect(fn () => storeTestMedia($user))->toThrow(InvalidArgumentException::class);
+    } finally {
+        config()->set('database.default', $originalConnection);
+    }
+
+    expect(Storage::disk('public')->allFiles())->toBeEmpty();
 });
 
 test('users without create permission cannot upload through livewire', function (): void {
@@ -105,7 +203,7 @@ test('users without create permission cannot upload through livewire', function 
     Livewire::actingAs($user)
         ->test('pages::media.index')
         ->set('files', [UploadedFile::fake()->image('blocked.jpg')])
-        ->call('upload')
+        ->call('saveMedia')
         ->assertForbidden();
 
     expect(Media::query()->count())->toBe(0);
@@ -130,6 +228,17 @@ test('per-type size limits are enforced', function (): void {
         $user,
         UploadedFile::fake()->create('too-large.pdf', 25 * 1024 + 1, 'application/pdf'),
     ))->toThrow(ValidationException::class);
+});
+
+test('oversized images are rejected without creating a media record', function (): void {
+    $user = mediaUser(PermissionName::MediaCreate);
+
+    expect(fn () => storeTestMedia(
+        $user,
+        UploadedFile::fake()->create('too-large.png', 10 * 1024 + 1, 'image/png'),
+    ))->toThrow(ValidationException::class);
+
+    expect(Media::query()->count())->toBe(0);
 });
 
 test('private uploads use the private disk and have no public url', function (): void {

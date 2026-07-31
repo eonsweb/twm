@@ -182,9 +182,17 @@ new #[Title('Media Library')] class extends Component
     {
         unset($this->files[$index]);
         $this->files = array_values($this->files);
+        $this->resetValidation();
     }
 
-    public function upload(MediaFileService $fileService): void
+    public function closeUploadModal(): void
+    {
+        $this->reset('files');
+        $this->resetValidation();
+        $this->showUploadModal = false;
+    }
+
+    public function saveMedia(MediaFileService $fileService): void
     {
         Gate::authorize('create', Media::class);
         $this->validate([
@@ -215,7 +223,8 @@ new #[Title('Media Library')] class extends Component
             } catch (ValidationException $exception) {
                 $this->addError("files.{$index}", collect($exception->errors())->flatten()->first() ?? __('The file is invalid.'));
                 $failed[] = $file;
-            } catch (\Throwable) {
+            } catch (\Throwable $exception) {
+                report($exception);
                 $this->addError("files.{$index}", __('The file could not be stored. Try again or contact an administrator.'));
                 $failed[] = $file;
             }
@@ -223,6 +232,9 @@ new #[Title('Media Library')] class extends Component
 
         $this->files = $failed;
         $this->showUploadModal = $failed !== [];
+        if ($failed === []) {
+            $this->resetValidation();
+        }
         unset($this->assets, $this->stats, $this->extensions);
         Flux::toast(
             variant: $failed === [] ? 'success' : 'warning',
@@ -584,7 +596,16 @@ new #[Title('Media Library')] class extends Component
     </section>
 
     <flux:modal wire:model="showUploadModal" class="max-w-3xl">
-        <form wire:submit="upload" class="space-y-5" x-data="{ progress: 0 }" x-on:livewire-upload-progress="progress = $event.detail.progress">
+        <form
+            wire:submit="saveMedia"
+            class="space-y-5"
+            x-data="{ temporaryUploading: false, progress: 0, uploadError: null }"
+            x-on:livewire-upload-start="temporaryUploading = true; progress = 0; uploadError = null"
+            x-on:livewire-upload-progress="progress = $event.detail.progress"
+            x-on:livewire-upload-finish="temporaryUploading = false; progress = 100"
+            x-on:livewire-upload-error="temporaryUploading = false; progress = 0; uploadError = @js(__('The temporary upload failed. Check the file size and try again.'))"
+            x-on:livewire-upload-cancel="temporaryUploading = false; progress = 0; uploadError = null"
+        >
             <div><flux:heading size="lg">{{ __('Upload media') }}</flux:heading><flux:text class="mt-2">{{ __('Select or drop up to 20 approved files. SVG, scripts, HTML, and executables are not accepted.') }}</flux:text></div>
             <label class="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center focus-within:ring-2 focus-within:ring-church-maroon-700 dark:border-zinc-700 dark:bg-zinc-800/50">
                 <flux:icon.cloud-arrow-up class="size-9 text-church-maroon-700 dark:text-church-gold-400" />
@@ -592,12 +613,40 @@ new #[Title('Media Library')] class extends Component
                 <span class="mt-1 text-xs text-slate-500">{{ __('Images 10 MB · documents 25 MB · audio 50 MB · archives 100 MB · video 250 MB') }}</span>
                 <input type="file" wire:model="files" multiple class="sr-only" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov,.mp3,.wav,.m4a,.ogg,.pdf,.doc,.docx,.txt,.rtf,.xls,.xlsx,.csv,.ppt,.pptx,.zip">
             </label>
-            <div wire:loading wire:target="files" class="w-full"><flux:progress x-bind:value="progress" max="100" /><p class="mt-2 text-sm text-slate-500">{{ __('Uploading to the secure temporary area…') }}</p></div>
+            <div x-show="temporaryUploading" x-cloak class="w-full" role="status" aria-live="polite">
+                <flux:progress x-bind:value="progress" max="100" />
+                <p class="mt-2 text-sm text-slate-500">{{ __('Uploading to the secure temporary area…') }} <span x-text="`${progress}%`"></span></p>
+            </div>
+            <p x-show="uploadError" x-cloak x-text="uploadError" class="text-sm font-medium text-red-600 dark:text-red-400" role="alert"></p>
             <flux:error name="files" />
             @foreach($files as $index => $file)
-                <div wire:key="pending-file-{{ $index }}" class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 dark:border-zinc-700"><div class="min-w-0"><p class="truncate text-sm font-medium">{{ $file->getClientOriginalName() }}</p><p class="text-xs text-slate-500">{{ Number::fileSize($file->getSize()) }}</p></div><flux:button type="button" variant="ghost" size="sm" icon="x-mark" wire:click="removePendingFile({{ $index }})" :aria-label="__('Remove pending file')" /></div>
+                <div wire:key="pending-file-{{ $index }}" class="rounded-lg border border-slate-200 p-3 dark:border-zinc-700">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0"><p class="truncate text-sm font-medium">{{ $file->getClientOriginalName() }}</p><p class="text-xs text-slate-500">{{ Number::fileSize($file->getSize()) }}</p></div>
+                        <flux:button type="button" variant="ghost" size="sm" icon="x-mark" wire:click="removePendingFile({{ $index }})" :aria-label="__('Remove pending file')" />
+                    </div>
+                    <flux:error name="files.{{ $index }}" />
+                </div>
             @endforeach
-            <div class="flex justify-end gap-3"><flux:button type="button" variant="ghost" wire:click="$set('showUploadModal', false)">{{ __('Cancel') }}</flux:button><flux:button type="submit" variant="primary" wire:loading.attr="disabled">{{ __('Upload files') }}</flux:button></div>
+            <div class="flex justify-end gap-3">
+                <flux:button
+                    type="button"
+                    variant="ghost"
+                    wire:click="closeUploadModal"
+                    x-on:click="$wire.$cancelUpload('files'); temporaryUploading = false; progress = 0; uploadError = null"
+                >{{ __('Cancel') }}</flux:button>
+                <flux:button
+                    type="submit"
+                    variant="primary"
+                    :loading="false"
+                    wire:target="saveMedia"
+                    wire:loading.attr="disabled"
+                    x-bind:disabled="temporaryUploading || {{ $files === [] ? 'true' : 'false' }}"
+                >
+                    <span wire:loading.remove wire:target="saveMedia">{{ __('Upload files') }}</span>
+                    <span wire:loading wire:target="saveMedia">{{ __('Saving and processing…') }}</span>
+                </flux:button>
+            </div>
         </form>
     </flux:modal>
 
