@@ -2,6 +2,7 @@
 
 namespace App\View\Composers;
 
+use App\Models\Page;
 use App\Models\ServiceSchedule;
 use App\Settings\SettingManager;
 use Illuminate\Support\Facades\Cache;
@@ -15,6 +16,7 @@ class PublicSettingsComposer
     {
         $view->with('publicSettings', $this->settings->publicGroups([
             'general',
+            'homepage',
             'church',
             'contact',
             'branding',
@@ -23,6 +25,12 @@ class PublicSettingsComposer
             'localization',
             'maintenance',
         ]));
+
+        $view->with('publicNavigationPages', Cache::remember(
+            'pages.public-navigation',
+            now()->addMinutes(10),
+            fn () => Page::query()->publiclyVisible()->where('show_in_navigation', true)->where('is_homepage', false)->orderBy('navigation_order')->orderBy('title')->get(['title', 'slug', 'navigation_label']),
+        ));
 
         if ($view->name() === 'welcome') {
             $view->with(

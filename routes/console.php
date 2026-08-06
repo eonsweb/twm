@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\PublishScheduledPages;
 use App\Console\Commands\PublishScheduledPosts;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -10,6 +11,11 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command(PublishScheduledPosts::class)
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->onOneServer();
+
+Schedule::command(PublishScheduledPages::class)
     ->everyMinute()
     ->withoutOverlapping()
     ->onOneServer();

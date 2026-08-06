@@ -39,7 +39,7 @@ class AppServiceProvider extends ServiceProvider
 
         Event::subscribe(AuthenticationActivitySubscriber::class);
 
-        View::composer(['welcome', 'components.app-logo'], PublicSettingsComposer::class);
+        View::composer(['welcome', 'components.app-logo', 'layouts.public'], PublicSettingsComposer::class);
 
         Livewire::addPersistentMiddleware([
             EnsurePasswordHasBeenChanged::class,

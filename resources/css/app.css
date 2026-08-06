@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 @import '../../vendor/livewire/flux/dist/flux.css';
 
@@ -9,7 +10,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-heading: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-signature: "Great Vibes", cursive;
+    --font-sans: var(--font-body);
 
     --color-church-maroon-50: #fdf4f5;
     --color-church-maroon-100: #fbe8eb;
@@ -23,6 +27,10 @@
     --color-church-gold-400: #edbd3d;
     --color-church-gold-500: #dca41f;
     --color-church-gold-600: #bd8117;
+    --color-church-green-700: #08732f;
+    --color-church-green-800: #075b28;
+    --color-church-green-900: #064a23;
+    --color-church-green-950: #032d17;
 
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
@@ -43,6 +51,10 @@
     --shadow-admin-panel: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.04);
 }
 
+[x-cloak] {
+    display: none !important;
+}
+
 .admin-sidebar {
     background:
         radial-gradient(circle at 10% 4%, rgb(125 24 48 / 0.72), transparent 32%),
@@ -50,6 +62,7 @@
 }
 
 .admin-sidebar [data-flux-sidebar-group] > div:first-child > div {
+    font-family: var(--font-heading);
     color: rgb(255 255 255 / 0.46);
     font-size: 0.65rem;
     font-weight: 700;
@@ -59,6 +72,7 @@
 
 .admin-sidebar-item {
     color: rgb(255 255 255 / 0.84) !important;
+    font-family: var(--font-heading);
 }
 
 .admin-sidebar-item:hover {
@@ -81,6 +95,43 @@
 }
 
 @layer base {
+
+    body {
+        font-family: var(--font-body);
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    [data-flux-heading] {
+        font-family: var(--font-heading);
+    }
+
+    button,
+    [role='button'],
+    [data-flux-button] {
+        font-family: var(--font-heading);
+    }
+
+    input,
+    textarea,
+    select,
+    option,
+    label,
+    table,
+    [data-flux-label],
+    [data-flux-control],
+    [data-flux-table],
+    [data-flux-table-sortable],
+    [data-flux-badge],
+    [data-flux-pagination],
+    [data-flux-pagination] button,
+    [data-flux-error] {
+        font-family: var(--font-body);
+    }
 
     *,
     ::after,

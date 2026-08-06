@@ -3,7 +3,7 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-slate-50 text-slate-950 antialiased dark:bg-zinc-950 dark:text-white">
+    <body class="font-body min-h-screen bg-slate-50 text-slate-950 antialiased dark:bg-zinc-950 dark:text-white">
         <a
             href="#admin-main"
             class="fixed start-4 top-4 z-50 -translate-y-24 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-church-maroon-900 shadow-lg transition focus:translate-y-0 dark:bg-zinc-800 dark:text-white"
@@ -36,6 +36,7 @@
                     \App\PermissionName::SermonsView->value,
                     \App\PermissionName::EventsView->value,
                     \App\PermissionName::MinistriesView->value,
+                    \App\PermissionName::BooksView->value,
                     \App\PermissionName::LeadershipView->value,
                     \App\PermissionName::MediaView->value,
                     \App\PermissionName::PagesView->value,
@@ -48,6 +49,7 @@
                         <x-admin.nav-item :label="__('Events')" icon="calendar-days" :permission="\App\PermissionName::EventsView->value" route-name="events.index" active-pattern="events.*" />
                         <x-admin.nav-item :label="__('Event types')" icon="tag" :permission="\App\PermissionName::EventTypesView->value" route-name="event-types.index" active-pattern="event-types.*" />
                         <x-admin.nav-item :label="__('Ministries')" icon="user-group" :permission="\App\PermissionName::MinistriesView->value" route-name="ministries.index" active-pattern="ministries.*" />
+                        <x-admin.nav-item :label="__('Books')" icon="book-open" :permission="\App\PermissionName::BooksView->value" route-name="books.index" active-pattern="books.*" />
                         <x-admin.nav-item :label="__('Leadership')" icon="identification" :permission="\App\PermissionName::LeadershipView->value" route-name="leadership.index" active-pattern="leadership.*" />
                         <x-admin.nav-item :label="__('Media library')" icon="photo" :permission="\App\PermissionName::MediaView->value" route-name="media.index" active-pattern="media.*" />
                         <x-admin.nav-item :label="__('Pages')" icon="document-duplicate" :permission="\App\PermissionName::PagesView->value" route-name="pages.index" active-pattern="pages.*" />
@@ -80,6 +82,10 @@
                 ])
                     <flux:sidebar.group :heading="__('Engagement')" class="admin-sidebar-group grid">
                         <x-admin.nav-item :label="__('Donations')" icon="heart" :permission="\App\PermissionName::DonationsView->value" route-name="donations.index" active-pattern="donations.*" />
+                        <x-admin.nav-item :label="__('Donors')" icon="users" :permission="\App\PermissionName::DonorsView->value" route-name="donors.index" active-pattern="donors.*" />
+                        <x-admin.nav-item :label="__('Giving categories')" icon="tag" :permission="\App\PermissionName::DonationCategoriesManage->value" route-name="donation-categories.index" active-pattern="donation-categories.*" />
+                        <x-admin.nav-item :label="__('Campaigns')" icon="flag" :permission="\App\PermissionName::DonationCampaignsManage->value" route-name="donation-campaigns.index" active-pattern="donation-campaigns.*" />
+                        <x-admin.nav-item :label="__('Transactions')" icon="banknotes" :permission="\App\PermissionName::PaymentTransactionsView->value" route-name="payment-transactions.index" active-pattern="payment-transactions.*" />
                         <x-admin.nav-item :label="__('Prayer requests')" icon="hand-raised" :permission="\App\PermissionName::PrayerRequestsView->value" route-name="prayer-requests.index" active-pattern="prayer-requests.*" />
                         <x-admin.nav-item :label="__('Contact submissions')" icon="envelope" :permission="\App\PermissionName::ContactSubmissionsView->value" route-name="contact-submissions.index" active-pattern="contact-submissions.*" />
                     </flux:sidebar.group>

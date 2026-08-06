@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             RolesAndPermissionsSeeder::class,
             MediaFolderSeeder::class,
+            PageSeeder::class,
             SystemSettingSeeder::class,
             LeadershipSeeder::class,
             MinistrySeeder::class,
@@ -26,6 +27,10 @@ class DatabaseSeeder extends Seeder
             PostSeeder::class,
             EventTypeSeeder::class,
             EventSeeder::class,
+            BookSeeder::class,
+            PrayerRequestSeeder::class,
+            ContactSubmissionSeeder::class,
+            DonationSeeder::class,
         ]);
     }
 }

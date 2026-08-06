@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Book;
+use App\Models\ContactSubmission;
+use App\Models\Donation;
 use App\Models\Ministry;
 use App\Models\Post;
 use App\Models\Sermon;
@@ -27,6 +30,14 @@ new #[Title('Dashboard')] class extends Component
     public function stats(): array
     {
         return [
+            [
+                'label' => __('Contact'),
+                'value' => ContactSubmission::query()->unread()->count(),
+                'caption' => __('Unread enquiries'),
+                'icon' => 'envelope',
+                'tone' => 'blue',
+                'permission' => PermissionName::ContactSubmissionsView->value,
+            ],
             [
                 'label' => __('Sermons'),
                 'value' => Sermon::query()->publiclyAvailable()->count(),
@@ -60,9 +71,17 @@ new #[Title('Dashboard')] class extends Component
                 'permission' => PermissionName::PostsView->value,
             ],
             [
+                'label' => __('Books'),
+                'value' => Book::query()->published()->count(),
+                'caption' => __('Published books'),
+                'icon' => 'book-open',
+                'tone' => 'gold',
+                'permission' => PermissionName::BooksView->value,
+            ],
+            [
                 'label' => __('Donations'),
-                'value' => '—',
-                'caption' => __('Engagement module coming soon'),
+                'value' => number_format((float) Donation::query()->completed()->whereYear('donated_at', now()->year)->sum('amount'), 2),
+                'caption' => __('Completed giving this year'),
                 'icon' => 'heart',
                 'tone' => 'rose',
                 'permission' => PermissionName::DonationsView->value,
@@ -100,6 +119,12 @@ new #[Title('Dashboard')] class extends Component
             ->limit(5)
             ->get(['id', 'title', 'slug', 'speaker_id', 'status', 'updated_at']);
     }
+
+    #[Computed]
+    public function recentDonations()
+    {
+        return Donation::query()->with(['donor:id,first_name,last_name,is_anonymous'])->latest('donated_at')->limit(5)->get();
+    }
 };
 ?>
 
@@ -112,7 +137,7 @@ new #[Title('Dashboard')] class extends Component
 
     <section aria-labelledby="overview-heading">
         <h2 id="overview-heading" class="sr-only">{{ __('Website overview') }}</h2>
-        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-9">
             @foreach ($this->stats as $stat)
                 @can($stat['permission'])
                     <x-admin.stat-card
@@ -169,11 +194,14 @@ new #[Title('Dashboard')] class extends Component
                     <h2 class="font-semibold text-slate-950 dark:text-white">{{ __('Recent donations') }}</h2>
                     <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-500">{{ __('The latest giving activity') }}</p>
                 </div>
-                <x-admin.empty-state
-                    icon="heart"
-                    :title="__('No donation data yet')"
-                    :description="__('Recent donations will appear here when the donations module is available.')"
-                />
+                @forelse($this->recentDonations as $donation)
+                    <a href="{{ route('donations.show', $donation) }}" class="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-3 last:border-0 dark:border-zinc-800" wire:navigate wire:key="dashboard-donation-{{ $donation->id }}">
+                        <div class="min-w-0"><p class="truncate text-sm font-semibold">{{ $donation->donorLabel() }}</p><p class="font-mono text-xs text-slate-500">{{ $donation->reference }}</p></div>
+                        <div class="text-right"><p class="font-semibold">{{ $donation->currency }} {{ number_format((float) $donation->amount, 2) }}</p><flux:badge>{{ $donation->payment_status->label() }}</flux:badge></div>
+                    </a>
+                @empty
+                    <x-admin.empty-state icon="heart" :title="__('No donation data yet')" :description="__('Recorded donations will appear here.')" />
+                @endforelse
             </article>
         @endcan
     </section>
@@ -190,7 +218,7 @@ new #[Title('Dashboard')] class extends Component
                     ['label' => __('New blog post'), 'icon' => 'document-plus', 'permission' => PermissionName::PostsCreate->value, 'route' => 'posts.create'],
                     ['label' => __('Upload media'), 'icon' => 'arrow-up-tray', 'permission' => PermissionName::MediaUpload->value, 'route' => 'media.create'],
                     ['label' => __('Add page'), 'icon' => 'document-duplicate', 'permission' => PermissionName::PagesCreate->value, 'route' => 'pages.create'],
-                    ['label' => __('View donations'), 'icon' => 'heart', 'permission' => PermissionName::DonationsView->value, 'route' => 'donations.index'],
+                    ['label' => __('Add donation'), 'icon' => 'heart', 'permission' => PermissionName::DonationsCreate->value, 'route' => 'donations.create'],
                 ];
             @endphp
 

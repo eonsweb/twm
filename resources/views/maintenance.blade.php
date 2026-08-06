@@ -6,7 +6,7 @@
         <title>{{ __('Website maintenance') }} — {{ data_get($church, 'official_name', config('app.name')) }}</title>
         @vite(['resources/css/app.css'])
     </head>
-    <body class="flex min-h-screen items-center justify-center bg-church-maroon-950 px-6 py-16 text-white">
+    <body class="font-body flex min-h-screen items-center justify-center bg-church-maroon-950 px-6 py-16 text-white">
         <main class="w-full max-w-2xl rounded-3xl border border-white/15 bg-white/10 p-8 text-center shadow-2xl backdrop-blur sm:p-12">
             <p class="text-sm font-semibold uppercase tracking-[0.18em] text-church-gold-400">
                 {{ data_get($church, 'official_name', config('app.name')) }}

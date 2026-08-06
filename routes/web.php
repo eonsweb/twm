@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\ActivityLogExportController;
+use App\Http\Controllers\DonationExportController;
+use App\Http\Controllers\DonationReceiptController;
 use App\Http\Controllers\MediaDownloadController;
 use App\Http\Controllers\MediaPreviewController;
 use App\Http\Middleware\EnforcePublicWebsiteAvailability;
@@ -9,7 +11,7 @@ use App\SystemSettingSection;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 
-Route::view('/', 'welcome')
+Route::livewire('/', 'pages::public.home')
     ->middleware(EnforcePublicWebsiteAvailability::class)
     ->name('home');
 
@@ -22,6 +24,13 @@ Route::middleware(EnforcePublicWebsiteAvailability::class)->group(function (): v
     Route::livewire('events/{event:slug}', 'pages::public.events.show')->name('public.events.show');
     Route::livewire('ministries', 'pages::public.ministries.index')->name('public.ministries.index');
     Route::livewire('ministries/{ministry:slug}', 'pages::public.ministries.show')->name('public.ministries.show');
+    Route::livewire('books', 'pages::public.books.index')->name('public.books.index');
+    Route::livewire('books/{book:slug}', 'pages::public.books.show')->name('public.books.show');
+    Route::livewire('prayer-request', 'pages::public.prayer-requests.create')->name('prayer-requests.create.public');
+    Route::livewire('contact', 'pages::public.contact')->name('public.contact');
+    Route::livewire('give', 'pages::public.give')->name('public.give');
+    Route::livewire('answered-prayers', 'pages::public.prayer-requests.index')->name('public.prayer-requests.index');
+    Route::livewire('answered-prayers/{prayerRequest:public_token}', 'pages::public.prayer-requests.show')->name('public.prayer-requests.show');
     Route::livewire('blog', 'pages::public.blog.index')->name('blog.index');
     Route::livewire('blog/category/{value}', 'pages::public.blog.archive')->defaults('type', 'category')->name('blog.category');
     Route::livewire('blog/tag/{value}', 'pages::public.blog.archive')->defaults('type', 'tag')->name('blog.tag');
@@ -111,6 +120,12 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'verified'])->g
         ->name('activity-logs.export');
 
     Route::prefix('admin')->group(function (): void {
+        Route::livewire('pages/trash', 'pages::pages.trash')->middleware(PermissionMiddleware::using(PermissionName::PagesRestore))->name('pages.trash');
+        Route::livewire('pages', 'pages::pages.index')->middleware(PermissionMiddleware::using(PermissionName::PagesView))->name('pages.index');
+        Route::livewire('pages/create', 'pages::pages.create')->middleware(PermissionMiddleware::using(PermissionName::PagesCreate))->name('pages.create');
+        Route::livewire('pages/{page:slug}/edit', 'pages::pages.edit')->middleware(PermissionMiddleware::using(PermissionName::PagesUpdate))->name('pages.edit');
+        Route::livewire('pages/{page:slug}/sections', 'pages::pages.sections')->middleware(PermissionMiddleware::using(PermissionName::PagesManageSections))->name('pages.sections');
+        Route::livewire('pages/{page:slug}/preview', 'pages::public.page-preview')->middleware(['signed', PermissionMiddleware::using(PermissionName::PagesPreview)])->name('pages.preview');
         Route::livewire('media/trash', 'pages::media.index')
             ->defaults('trash', true)
             ->middleware(PermissionMiddleware::using(PermissionName::MediaRestore))
@@ -172,6 +187,47 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'verified'])->g
         Route::livewire('ministries/{ministry:slug}', 'pages::ministries.show')
             ->middleware(PermissionMiddleware::using(PermissionName::MinistriesView))
             ->name('ministries.show');
+        Route::livewire('books', 'pages::books.index')
+            ->middleware(PermissionMiddleware::using(PermissionName::BooksView))
+            ->name('books.index');
+        Route::livewire('books/create', 'pages::books.create')
+            ->middleware(PermissionMiddleware::using(PermissionName::BooksCreate))
+            ->name('books.create');
+        Route::livewire('books/{book:slug}/edit', 'pages::books.edit')
+            ->middleware(PermissionMiddleware::using(PermissionName::BooksUpdate))
+            ->name('books.edit');
+        Route::livewire('books/{book:slug}', 'pages::books.show')
+            ->middleware(PermissionMiddleware::using(PermissionName::BooksView))
+            ->name('books.show');
+        Route::livewire('prayer-requests', 'pages::prayer-requests.index')
+            ->middleware(PermissionMiddleware::using(PermissionName::PrayerRequestsView))
+            ->name('prayer-requests.index');
+        Route::livewire('prayer-requests/create', 'pages::prayer-requests.create')
+            ->middleware(PermissionMiddleware::using(PermissionName::PrayerRequestsCreate))
+            ->name('prayer-requests.create');
+        Route::livewire('prayer-requests/{prayerRequest}/edit', 'pages::prayer-requests.edit')
+            ->middleware(PermissionMiddleware::using(PermissionName::PrayerRequestsUpdate))
+            ->name('prayer-requests.edit');
+        Route::livewire('prayer-requests/{prayerRequest}', 'pages::prayer-requests.show')
+            ->middleware(PermissionMiddleware::using(PermissionName::PrayerRequestsView))
+            ->name('prayer-requests.show');
+        Route::livewire('contact-submissions', 'pages::contact-submissions.index')
+            ->middleware(PermissionMiddleware::using(PermissionName::ContactSubmissionsView))
+            ->name('contact-submissions.index');
+        Route::livewire('contact-submissions/{contactSubmission}', 'pages::contact-submissions.show')
+            ->middleware(PermissionMiddleware::using(PermissionName::ContactSubmissionsView))
+            ->name('contact-submissions.show');
+        Route::livewire('donations', 'pages::donations.index')->middleware(PermissionMiddleware::using(PermissionName::DonationsView))->name('donations.index');
+        Route::livewire('donations/create', 'pages::donations.create')->middleware(PermissionMiddleware::using(PermissionName::DonationsCreate))->name('donations.create');
+        Route::livewire('donations/{donation}/edit', 'pages::donations.edit')->middleware(PermissionMiddleware::using(PermissionName::DonationsUpdate))->name('donations.edit');
+        Route::get('donations/{donation}/receipt', DonationReceiptController::class)->middleware(PermissionMiddleware::using(PermissionName::DonationsPrintReceipt))->name('donations.receipt');
+        Route::livewire('donations/{donation}', 'pages::donations.show')->middleware(PermissionMiddleware::using(PermissionName::DonationsView))->name('donations.show');
+        Route::get('donations-export', DonationExportController::class)->middleware(PermissionMiddleware::using(PermissionName::DonationsExport))->name('donations.export');
+        Route::livewire('donors', 'pages::donors.index')->middleware(PermissionMiddleware::using(PermissionName::DonorsView))->name('donors.index');
+        Route::livewire('donors/{donor}', 'pages::donors.show')->middleware(PermissionMiddleware::using(PermissionName::DonorsView))->name('donors.show');
+        Route::livewire('donation-categories', 'pages::donation-categories.index')->middleware(PermissionMiddleware::using(PermissionName::DonationCategoriesManage))->name('donation-categories.index');
+        Route::livewire('donation-campaigns', 'pages::donation-campaigns.index')->middleware(PermissionMiddleware::using(PermissionName::DonationCampaignsManage))->name('donation-campaigns.index');
+        Route::livewire('payment-transactions', 'pages::payment-transactions.index')->middleware(PermissionMiddleware::using(PermissionName::PaymentTransactionsView))->name('payment-transactions.index');
         Route::livewire('posts', 'pages::posts.index')
             ->middleware(PermissionMiddleware::using(PermissionName::PostsView))
             ->name('posts.index');
@@ -195,5 +251,10 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'verified'])->g
             ->name('blog.preview');
     });
 });
+
+Route::livewire('{page:slug}', 'pages::public.dynamic-page')
+    ->middleware(EnforcePublicWebsiteAvailability::class)
+    ->where('page', '[a-z0-9][a-z0-9-]*')
+    ->name('public.pages.show');
 
 require __DIR__.'/settings.php';

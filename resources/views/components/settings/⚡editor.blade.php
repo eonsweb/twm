@@ -72,6 +72,30 @@ new class extends Component
             }
         }
 
+        if ($section === SystemSettingSection::General) {
+            $enabledSections = $values['enabled_sections'] ?? [];
+            $allowedSections = ['services', 'welcome', 'sermon_events', 'ministries', 'calls_to_action', 'featured_book', 'testimonials'];
+
+            if (! is_array($enabledSections)
+                || collect($enabledSections)->contains(fn (mixed $section): bool => ! is_string($section))
+                || array_diff($enabledSections, $allowedSections) !== []) {
+                throw ValidationException::withMessages([
+                    'values.enabled_sections' => __('Use a JSON array containing only supported homepage section keys.'),
+                ]);
+            }
+
+            $testimonials = $values['testimonials'] ?? [];
+            if (! is_array($testimonials) || collect($testimonials)->contains(
+                fn (mixed $testimonial): bool => ! is_array($testimonial)
+                    || ! is_string($testimonial['quote'] ?? null)
+                    || ! is_string($testimonial['name'] ?? null),
+            )) {
+                throw ValidationException::withMessages([
+                    'values.testimonials' => __('Each testimonial requires a quote and name.'),
+                ]);
+            }
+        }
+
         $settings->updateSection($section, $values);
 
         foreach ($registry->forSection($section) as $definition) {

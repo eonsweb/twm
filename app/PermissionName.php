@@ -55,6 +55,14 @@ enum PermissionName: string
     case MinistriesForceDelete = 'ministries.force-delete';
     case MinistriesPublish = 'ministries.publish';
 
+    case BooksView = 'books.view';
+    case BooksCreate = 'books.create';
+    case BooksUpdate = 'books.update';
+    case BooksPublish = 'books.publish';
+    case BooksArchive = 'books.archive';
+    case BooksRestore = 'books.restore';
+    case BooksDelete = 'books.delete';
+
     case LeadershipView = 'leadership.view';
     case LeadershipCreate = 'leadership.create';
     case LeadershipUpdate = 'leadership.update';
@@ -91,20 +99,54 @@ enum PermissionName: string
     case PagesUpdate = 'pages.update';
     case PagesDelete = 'pages.delete';
     case PagesPublish = 'pages.publish';
+    case PagesRestore = 'pages.restore';
+    case PagesForceDelete = 'pages.force-delete';
+    case PagesManageSections = 'pages.manage-sections';
+    case PagesManageSeo = 'pages.manage-seo';
+    case PagesPreview = 'pages.preview';
 
     case DonationsView = 'donations.view';
     case DonationsCreate = 'donations.create';
     case DonationsUpdate = 'donations.update';
     case DonationsDelete = 'donations.delete';
+    case DonationsRestore = 'donations.restore';
+    case DonationsApprove = 'donations.approve';
+    case DonationsRefund = 'donations.refund';
     case DonationsExport = 'donations.export';
+    case DonationsPrintReceipt = 'donations.print-receipt';
+    case DonorsView = 'donors.view';
+    case DonorsCreate = 'donors.create';
+    case DonorsUpdate = 'donors.update';
+    case DonorsDelete = 'donors.delete';
+    case DonationCategoriesManage = 'donation-categories.manage';
+    case DonationCampaignsManage = 'donation-campaigns.manage';
+    case PaymentTransactionsView = 'payment-transactions.view';
 
     case PrayerRequestsView = 'prayer-requests.view';
+    case PrayerRequestsCreate = 'prayer-requests.create';
     case PrayerRequestsUpdate = 'prayer-requests.update';
+    case PrayerRequestsAssign = 'prayer-requests.assign';
+    case PrayerRequestsAddNotes = 'prayer-requests.add-notes';
+    case PrayerRequestsViewContactDetails = 'prayer-requests.view-contact-details';
+    case PrayerRequestsViewSensitiveMetadata = 'prayer-requests.view-sensitive-metadata';
+    case PrayerRequestsMarkAnswered = 'prayer-requests.mark-answered';
+    case PrayerRequestsPublish = 'prayer-requests.publish';
+    case PrayerRequestsArchive = 'prayer-requests.archive';
     case PrayerRequestsDelete = 'prayer-requests.delete';
+    case PrayerRequestsRestore = 'prayer-requests.restore';
+    case PrayerRequestsForceDelete = 'prayer-requests.force-delete';
 
     case ContactSubmissionsView = 'contact-submissions.view';
+    case ContactSubmissionsCreate = 'contact-submissions.create';
     case ContactSubmissionsUpdate = 'contact-submissions.update';
+    case ContactSubmissionsAssign = 'contact-submissions.assign';
+    case ContactSubmissionsReply = 'contact-submissions.reply';
+    case ContactSubmissionsResolve = 'contact-submissions.resolve';
+    case ContactSubmissionsManageNotes = 'contact-submissions.manage-notes';
+    case ContactSubmissionsMarkSpam = 'contact-submissions.mark-spam';
     case ContactSubmissionsDelete = 'contact-submissions.delete';
+    case ContactSubmissionsRestore = 'contact-submissions.restore';
+    case ContactSubmissionsForceDelete = 'contact-submissions.force-delete';
 
     case SettingsView = 'settings.view';
     case SettingsUpdate = 'settings.update';
