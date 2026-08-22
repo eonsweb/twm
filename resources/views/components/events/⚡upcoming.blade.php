@@ -12,9 +12,11 @@ new class extends Component
     public function events()
     {
         return Event::query()
+            ->active()
             ->published()
             ->upcoming()
-            ->with('eventType:id,name')
+            ->with(['eventType:id,name,icon,color', 'featuredImage:id,disk,path,media_type,visibility,status'])
+            ->orderBy('sort_order')
             ->orderBy('starts_at')
             ->limit($this->limit)
             ->get();

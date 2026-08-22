@@ -74,7 +74,7 @@ new class extends Component
 
         if ($section === SystemSettingSection::General) {
             $enabledSections = $values['enabled_sections'] ?? [];
-            $allowedSections = ['services', 'welcome', 'sermon_events', 'ministries', 'calls_to_action', 'featured_book', 'testimonials'];
+            $allowedSections = ['services', 'welcome_upcoming_event', 'welcome', 'sermon_events', 'ministries', 'calls_to_action', 'featured_book', 'testimonials'];
 
             if (! is_array($enabledSections)
                 || collect($enabledSections)->contains(fn (mixed $section): bool => ! is_string($section))

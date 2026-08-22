@@ -9,6 +9,18 @@ test('login screen can be rendered', function () {
     $response->assertOk();
 });
 
+test('login button exposes a submission-specific loading state', function () {
+    $this->get(route('login'))
+        ->assertOk()
+        ->assertSee('x-data="{ submitting: false }"', escape: false)
+        ->assertSee('x-on:submit="if (submitting) { $event.preventDefault() } else { submitting = true }"', escape: false)
+        ->assertSee('x-bind:disabled="submitting"', escape: false)
+        ->assertSee('x-show="! submitting"', escape: false)
+        ->assertSee('x-show="submitting"', escape: false)
+        ->assertSee('Loading...')
+        ->assertSee('Sign in with a passkey');
+});
+
 test('users can authenticate with an email address', function () {
     $user = User::factory()->create();
 

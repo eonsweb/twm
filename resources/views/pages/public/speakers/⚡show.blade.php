@@ -29,7 +29,7 @@ new #[Layout('layouts.public')] class extends Component
     {
         return $this->speaker->sermons()
             ->publiclyAvailable()
-            ->with(['speaker:id,title,first_name,middle_name,last_name', 'series:id,title'])
+            ->with('speaker:id,title,first_name,middle_name,last_name')
             ->orderByDesc('sermon_date')
             ->paginate(12);
     }

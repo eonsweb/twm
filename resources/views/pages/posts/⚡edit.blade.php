@@ -32,7 +32,21 @@ new #[Title('Edit Blog Post')] class extends Component
         $this->form->setPost($post);
     }
 
-    #[Computed] public function categories() { return PostCategory::query()->where(fn ($query) => $query->where('is_active', true)->orWhereKey($this->post->post_category_id))->orderBy('sort_order')->orderBy('name')->get(['id', 'name']); }
+    #[Computed]
+    public function categories()
+    {
+        return PostCategory::query()
+            ->where(function ($query): void {
+                $query->where('is_active', true);
+
+                if ($this->post->post_category_id !== null) {
+                    $query->orWhere('id', $this->post->post_category_id);
+                }
+            })
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
     #[Computed] public function tags() { return Tag::query()->orderBy('name')->get(['id', 'name']); }
     #[Computed] public function authors() { return User::query()->orderBy('name')->get(['id', 'name']); }
     #[Computed] public function previewUrl(): string { return URL::temporarySignedRoute('blog.preview', now()->addMinutes(30), ['post' => $this->post]); }

@@ -52,7 +52,7 @@ class Page extends Model
     /** @use HasFactory<PageFactory> */
     use HasFactory, HasMedia, LogsActivity, SoftDeletes;
 
-    public const RESERVED_SLUGS = ['admin', 'api', 'login', 'logout', 'register', 'dashboard', 'settings', 'password', 'sermons', 'sermon-series', 'speakers', 'events', 'ministries', 'books', 'prayer-request', 'answered-prayers', 'contact', 'give', 'blog', 'media', 'users', 'roles'];
+    public const RESERVED_SLUGS = ['admin', 'api', 'login', 'logout', 'register', 'dashboard', 'settings', 'password', 'sermons', 'speakers', 'events', 'ministries', 'books', 'prayer-request', 'answered-prayers', 'contact', 'give', 'blog', 'media', 'users', 'roles'];
 
     protected $attributes = ['page_type' => 'standard', 'template' => 'default', 'status' => 'draft', 'visibility' => 'public', 'is_homepage' => false, 'show_in_navigation' => false, 'robots_index' => true, 'robots_follow' => true];
 
@@ -83,7 +83,7 @@ class Page extends Model
     /** @return HasMany<PageSection, $this> */
     public function sections(): HasMany
     {
-        return $this->hasMany(PageSection::class)->orderBy('sort_order');
+        return $this->hasMany(PageSection::class)->orderBy('sort_order')->orderBy('id');
     }
 
     /** @return BelongsTo<Media, $this> */

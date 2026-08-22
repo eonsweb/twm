@@ -10,6 +10,7 @@ use App\Settings\SettingManager;
 use App\Settings\SettingRegistry;
 use App\SystemSettingSection;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Database\Seeders\ServiceScheduleSeeder;
 use Database\Seeders\SystemSettingSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
@@ -21,6 +22,7 @@ beforeEach(function () {
     $this->seed([
         RolesAndPermissionsSeeder::class,
         SystemSettingSeeder::class,
+        ServiceScheduleSeeder::class,
     ]);
 });
 
@@ -36,10 +38,11 @@ test('default settings and service schedules are seeded idempotently', function 
     $initialSettingCount = SystemSetting::query()->count();
 
     $this->seed(SystemSettingSeeder::class);
+    $this->seed(ServiceScheduleSeeder::class);
 
     expect(SystemSetting::query()->count())->toBe($initialSettingCount)
         ->and(SystemSetting::query()->where('group', 'general')->where('key', 'website_name')->exists())->toBeTrue()
-        ->and(ServiceSchedule::query()->count())->toBe(2);
+        ->and(ServiceSchedule::query()->count())->toBe(4);
 });
 
 test('the defaults initializer never overwrites administrator changes', function () {
@@ -228,6 +231,8 @@ test('service schedules can be updated and reordered atomically', function () {
         ->test('settings.service-times')
         ->set('schedules.0.name', 'Celebration Service')
         ->set('schedules.0.start_time', '09:30')
+        ->call('removeSchedule', 3)
+        ->call('removeSchedule', 2)
         ->call('removeSchedule', 1)
         ->call('addSchedule');
 

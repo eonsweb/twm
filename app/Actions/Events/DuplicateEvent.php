@@ -18,6 +18,7 @@ class DuplicateEvent
         $copy = $source->replicate([
             'slug',
             'featured_image',
+            'featured_image_id',
             'published_at',
             'created_by',
             'updated_by',
@@ -26,6 +27,7 @@ class DuplicateEvent
             'title' => $source->title.' (Copy)',
             'slug' => Event::uniqueSlug($source->title.' copy'),
             'featured_image' => null,
+            'featured_image_id' => null,
             'status' => EventStatus::Draft,
             'published_at' => null,
             'is_featured' => false,

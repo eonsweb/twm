@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\ServiceScheduleFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -15,6 +16,27 @@ class ServiceSchedule extends Model
     public function formattedTime(): string
     {
         return Carbon::parse((string) $this->start_time)->format('g:i A');
+    }
+
+    public function formattedTimeRange(): string
+    {
+        if ($this->end_time === null) {
+            return $this->formattedTime();
+        }
+
+        return $this->formattedTime().' – '.Carbon::parse((string) $this->end_time)->format('g:i A');
+    }
+
+    /** @param  Builder<ServiceSchedule>  $query */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
+    }
+
+    /** @param  Builder<ServiceSchedule>  $query */
+    public function scopeOrdered(Builder $query): Builder
+    {
+        return $query->orderBy('display_order')->orderBy('id');
     }
 
     /**

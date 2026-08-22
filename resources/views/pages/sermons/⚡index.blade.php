@@ -5,8 +5,6 @@ use App\Actions\Sermons\DeleteSermon;
 use App\Actions\Sermons\DuplicateSermon;
 use App\Models\Person;
 use App\Models\Sermon;
-use App\Models\SermonSeries;
-use App\Models\Topic;
 use App\Models\User;
 use App\SermonMediaPlatform;
 use App\SermonMediaType;
@@ -36,10 +34,6 @@ new #[Title('Sermons')] class extends Component
     public string $mediaType = '';
     #[Url]
     public string $speaker = '';
-    #[Url]
-    public string $series = '';
-    #[Url]
-    public string $topic = '';
     #[Url]
     public string $featured = '';
     #[Url]
@@ -86,12 +80,11 @@ new #[Title('Sermons')] class extends Component
             ->withTrashed()
             ->select([
                 'id', 'title', 'slug', 'thumbnail_path', 'external_thumbnail_url', 'speaker_id',
-                'sermon_series_id', 'media_platform', 'media_type', 'sermon_date', 'status',
+                'media_platform', 'media_type', 'sermon_date', 'status',
                 'is_featured', 'published_at', 'created_by', 'deleted_at', 'created_at', 'updated_at',
             ])
             ->with([
                 'speaker:id,title,first_name,middle_name,last_name',
-                'series:id,title,deleted_at',
                 'creator:id,name',
             ])
             ->when($this->search !== '', function (Builder $query): void {
@@ -102,17 +95,13 @@ new #[Title('Sermons')] class extends Component
                         ->orWhere('summary', 'like', $search)
                         ->orWhereHas('speaker', fn (Builder $speaker): Builder => $speaker
                             ->where('first_name', 'like', $search)
-                            ->orWhere('last_name', 'like', $search))
-                        ->orWhereHas('series', fn (Builder $series): Builder => $series->where('title', 'like', $search))
-                        ->orWhereHas('topics', fn (Builder $topics): Builder => $topics->where('name', 'like', $search));
+                            ->orWhere('last_name', 'like', $search));
                 });
             })
             ->when($this->status !== '', fn (Builder $query): Builder => $query->where('status', $this->status))
             ->when($this->platform !== '', fn (Builder $query): Builder => $query->where('media_platform', $this->platform))
             ->when($this->mediaType !== '', fn (Builder $query): Builder => $query->where('media_type', $this->mediaType))
             ->when($this->speaker !== '', fn (Builder $query): Builder => $query->where('speaker_id', $this->speaker))
-            ->when($this->series !== '', fn (Builder $query): Builder => $query->where('sermon_series_id', $this->series))
-            ->when($this->topic !== '', fn (Builder $query): Builder => $query->whereHas('topics', fn (Builder $topics): Builder => $topics->whereKey($this->topic)))
             ->when($this->featured !== '', fn (Builder $query): Builder => $query->where('is_featured', $this->featured === '1'))
             ->when($this->createdBy !== '', fn (Builder $query): Builder => $query->where('created_by', $this->createdBy))
             ->when($this->sermonFrom !== '', fn (Builder $query): Builder => $query->whereDate('sermon_date', '>=', $this->sermonFrom))
@@ -129,8 +118,6 @@ new #[Title('Sermons')] class extends Component
     {
         return [
             'speakers' => Person::query()->whereHas('sermons')->orderBy('first_name')->get(['id', 'title', 'first_name', 'middle_name', 'last_name']),
-            'series' => SermonSeries::query()->orderBy('title')->get(['id', 'title']),
-            'topics' => Topic::query()->active()->orderBy('name')->get(['id', 'name']),
             'creators' => User::query()->whereHas('createdSermons')->orderBy('name')->get(['id', 'name']),
         ];
     }
@@ -204,12 +191,10 @@ new #[Title('Sermons')] class extends Component
 
     <section class="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-admin-panel dark:border-zinc-800 dark:bg-zinc-900">
         <div class="space-y-4 border-b border-slate-100 p-4 sm:p-6 dark:border-zinc-800">
-            <flux:input wire:model.live.debounce.350ms="search" icon="magnifying-glass" :label="__('Search sermons')" :placeholder="__('Title, speaker, series, scripture, summary, or topic')" />
+            <flux:input wire:model.live.debounce.350ms="search" icon="magnifying-glass" :label="__('Search sermons')" :placeholder="__('Title, speaker, scripture, or summary')" />
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
                 <flux:select wire:model.live="status" :label="__('Status')"><flux:select.option value="">{{ __('All') }}</flux:select.option>@foreach (SermonStatus::cases() as $item)<flux:select.option :value="$item->value">{{ $item->label() }}</flux:select.option>@endforeach</flux:select>
                 <flux:select wire:model.live="speaker" :label="__('Speaker')"><flux:select.option value="">{{ __('All') }}</flux:select.option>@foreach ($this->filterOptions['speakers'] as $item)<flux:select.option :value="$item->id">{{ $item->full_name }}</flux:select.option>@endforeach</flux:select>
-                <flux:select wire:model.live="series" :label="__('Series')"><flux:select.option value="">{{ __('All') }}</flux:select.option>@foreach ($this->filterOptions['series'] as $item)<flux:select.option :value="$item->id">{{ $item->title }}</flux:select.option>@endforeach</flux:select>
-                <flux:select wire:model.live="topic" :label="__('Topic')"><flux:select.option value="">{{ __('All') }}</flux:select.option>@foreach ($this->filterOptions['topics'] as $item)<flux:select.option :value="$item->id">{{ $item->name }}</flux:select.option>@endforeach</flux:select>
                 <flux:select wire:model.live="platform" :label="__('Platform')"><flux:select.option value="">{{ __('All') }}</flux:select.option>@foreach (SermonMediaPlatform::cases() as $item)<flux:select.option :value="$item->value">{{ $item->label() }}</flux:select.option>@endforeach</flux:select>
                 <flux:select wire:model.live="mediaType" :label="__('Media type')"><flux:select.option value="">{{ __('All') }}</flux:select.option>@foreach (SermonMediaType::cases() as $item)<flux:select.option :value="$item->value">{{ $item->label() }}</flux:select.option>@endforeach</flux:select>
                 <flux:select wire:model.live="featured" :label="__('Featured')"><flux:select.option value="">{{ __('All') }}</flux:select.option><flux:select.option value="1">{{ __('Featured') }}</flux:select.option><flux:select.option value="0">{{ __('Not featured') }}</flux:select.option></flux:select>
@@ -230,7 +215,7 @@ new #[Title('Sermons')] class extends Component
                     <flux:table :paginate="$this->sermons">
                         <flux:table.columns>
                             <flux:table.column>{{ __('Sermon') }}</flux:table.column>
-                            <flux:table.column>{{ __('Speaker / series') }}</flux:table.column>
+                            <flux:table.column>{{ __('Speaker') }}</flux:table.column>
                             <flux:table.column>{{ __('Platform') }}</flux:table.column>
                             <flux:table.column>{{ __('Date') }}</flux:table.column>
                             <flux:table.column>{{ __('Status') }}</flux:table.column>
@@ -248,7 +233,7 @@ new #[Title('Sermons')] class extends Component
                                             <div><p class="font-semibold text-slate-950 dark:text-white">{{ $sermon->title }}</p>@if ($sermon->is_featured)<flux:badge size="sm" color="amber">{{ __('Featured') }}</flux:badge>@endif</div>
                                         </div>
                                     </flux:table.cell>
-                                    <flux:table.cell><p>{{ $sermon->speaker->full_name }}</p><p class="text-xs text-slate-500">{{ $sermon->series?->title ?? __('No series') }}</p></flux:table.cell>
+                                    <flux:table.cell>{{ $sermon->speaker->full_name }}</flux:table.cell>
                                     <flux:table.cell>{{ $sermon->media_platform->label() }}</flux:table.cell>
                                     <flux:table.cell>{{ $sermon->sermon_date->format('M j, Y') }}</flux:table.cell>
                                     <flux:table.cell><flux:badge :color="$sermon->deleted_at ? 'red' : ($sermon->status === SermonStatus::Published ? 'green' : ($sermon->status === SermonStatus::Scheduled ? 'blue' : 'zinc'))">{{ $sermon->deleted_at ? __('Deleted') : $sermon->status->label() }}</flux:badge></flux:table.cell>

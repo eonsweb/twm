@@ -6,8 +6,6 @@ use App\Actions\Sermons\SaveSermon;
 use App\Models\ActivityLog;
 use App\Models\Person;
 use App\Models\Sermon;
-use App\Models\SermonSeries;
-use App\Models\Topic;
 use App\Models\User;
 use App\PermissionName;
 use App\SermonMediaPlatform;
@@ -17,7 +15,10 @@ use App\SermonStatus;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -39,7 +40,6 @@ function validSermonData(Person $speaker, array $overrides = []): array
         'embed_url' => 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
         'external_thumbnail_url' => 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
         'speaker_id' => $speaker->id,
-        'sermon_series_id' => null,
         'service_name' => 'Sunday Worship',
         'location' => 'Main Campus',
         'status' => SermonStatus::Draft->value,
@@ -77,6 +77,29 @@ test('supported video URLs are normalized to safe embeds', function (string $url
     ],
 ]);
 
+test('common YouTube URLs resolve to one canonical video identifier and embed', function (string $url): void {
+    $media = app(ExternalMedia::class);
+
+    expect($media->youtubeVideoId($url))->toBe('YsHMyGcDyuI')
+        ->and($media->youtubeEmbedUrl($url))->toBe('https://www.youtube-nocookie.com/embed/YsHMyGcDyuI')
+        ->and($media->inspect($url)['embed_url'])->toBe('https://www.youtube-nocookie.com/embed/YsHMyGcDyuI');
+})->with([
+    'watch URL' => 'https://www.youtube.com/watch?v=YsHMyGcDyuI',
+    'watch URL with unrelated parameters' => 'https://www.youtube.com/watch?v=YsHMyGcDyuI&source_ve_path=MTc4NDI0',
+    'short URL' => 'https://youtu.be/YsHMyGcDyuI',
+    'embed URL' => 'https://www.youtube.com/embed/YsHMyGcDyuI',
+    'shorts URL' => 'https://www.youtube.com/shorts/YsHMyGcDyuI',
+]);
+
+test('invalid YouTube identifiers do not produce embed URLs', function (): void {
+    $media = app(ExternalMedia::class);
+    $url = 'https://www.youtube.com/watch?v=invalid';
+
+    expect($media->youtubeVideoId($url))->toBeNull()
+        ->and($media->youtubeEmbedUrl($url))->toBeNull()
+        ->and(fn () => $media->inspect($url))->toThrow(InvalidArgumentException::class);
+});
+
 test('supported audio platforms are normalized', function (string $url, SermonMediaPlatform $platform): void {
     $media = app(ExternalMedia::class)->inspect($url);
 
@@ -108,23 +131,18 @@ test('unsupported https URLs use an external link fallback', function (): void {
         ->and(app(ExternalMedia::class)->isEmbeddableUrl('https://media.example.org/embed/faith'))->toBeFalse();
 });
 
-test('authorized users can create a draft sermon with series and topics', function (): void {
+test('authorized users can create a draft sermon without classifications', function (): void {
     $actor = User::factory()->create();
     $actor->givePermissionTo(PermissionName::SermonsCreate->value);
     $speaker = Person::factory()->create();
-    $series = SermonSeries::factory()->create();
-    $topics = Topic::factory()->count(2)->create();
 
     $sermon = app(SaveSermon::class)->handle(
         $actor,
-        validSermonData($speaker, ['sermon_series_id' => $series->id]),
-        $topics->modelKeys(),
+        validSermonData($speaker),
     );
 
     expect($sermon->slug)->toBe('walking-by-faith')
         ->and($sermon->speaker->is($speaker))->toBeTrue()
-        ->and($sermon->series->is($series))->toBeTrue()
-        ->and($sermon->topics)->toHaveCount(2)
         ->and($sermon->status)->toBe(SermonStatus::Draft)
         ->and(ActivityLog::query()->where('event', 'sermon.created')->exists())->toBeTrue();
 });
@@ -141,7 +159,6 @@ test('the save action derives trusted media fields instead of accepting supplied
             'embed_url' => 'https://attacker.example/embed',
             'external_thumbnail_url' => 'https://attacker.example/thumbnail.jpg',
         ]),
-        [],
     );
 
     expect($sermon->media_platform)->toBe(SermonMediaPlatform::YouTube)
@@ -160,16 +177,25 @@ test('create permission cannot be escalated into publish permission through the 
             'status' => SermonStatus::Published->value,
             'published_at' => now(),
         ]),
-        [],
     ))->toThrow(AuthorizationException::class);
 
     expect(Sermon::query()->where('title', 'Walking by Faith')->exists())->toBeFalse();
 });
 
-test('sermons may exist without a series', function (): void {
-    $sermon = Sermon::factory()->create(['sermon_series_id' => null]);
+test('authorized users can edit a sermon and preserve its speaker association', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo([PermissionName::SermonsCreate->value, PermissionName::SermonsUpdate->value]);
+    [$originalSpeaker, $replacementSpeaker] = Person::factory()->count(2)->create();
+    $sermon = app(SaveSermon::class)->handle($actor, validSermonData($originalSpeaker));
 
-    expect($sermon->series)->toBeNull();
+    $updated = app(SaveSermon::class)->handle(
+        $actor,
+        validSermonData($replacementSpeaker, ['title' => 'Updated Message']),
+        sermon: $sermon,
+    );
+
+    expect($updated->title)->toBe('Updated Message')
+        ->and($updated->speaker->is($replacementSpeaker))->toBeTrue();
 });
 
 test('publishing requires a permission separate from updating', function (): void {
@@ -200,9 +226,7 @@ test('scheduling requires a future time', function (): void {
 test('duplicating a sermon resets publication history and custom thumbnail', function (): void {
     $actor = User::factory()->create();
     $actor->givePermissionTo(PermissionName::SermonsCreate->value);
-    $topic = Topic::factory()->create();
     $source = Sermon::factory()->published()->featured()->create(['thumbnail_path' => 'sermons/thumbnails/original.jpg']);
-    $source->topics()->attach($topic);
 
     $duplicate = app(DuplicateSermon::class)->handle($actor, $source);
 
@@ -211,8 +235,7 @@ test('duplicating a sermon resets publication history and custom thumbnail', fun
         ->and($duplicate->published_at)->toBeNull()
         ->and($duplicate->scheduled_at)->toBeNull()
         ->and($duplicate->is_featured)->toBeFalse()
-        ->and($duplicate->thumbnail_path)->toBeNull()
-        ->and($duplicate->topics)->toHaveCount(1);
+        ->and($duplicate->thumbnail_path)->toBeNull();
 });
 
 test('public availability scope enforces every publication state', function (): void {
@@ -241,6 +264,52 @@ test('authorized administrators can access sermon administration', function (): 
     $this->actingAs($user)->get(route('sermons.index'))->assertOk();
 });
 
+test('sermon administration no longer exposes series or topic controls', function (): void {
+    $user = User::factory()->create();
+    $user->givePermissionTo([PermissionName::SermonsView->value, PermissionName::SermonsCreate->value]);
+
+    $this->actingAs($user)->get(route('sermons.create'))
+        ->assertOk()
+        ->assertDontSee('Sermon series')
+        ->assertDontSee('Sermon topics')
+        ->assertDontSee('No series')
+        ->assertDontSee('No topics have been created yet');
+});
+
+test('classification routes are removed while speaker routes remain available', function (): void {
+    expect(Route::has('sermon-series.index'))->toBeFalse()
+        ->and(Route::has('public.sermon-series.show'))->toBeFalse()
+        ->and(Route::has('sermon-topics.index'))->toBeFalse()
+        ->and(Route::has('speakers.index'))->toBeTrue()
+        ->and(Route::has('public.speakers.show'))->toBeTrue();
+});
+
+test('classification permissions are no longer seeded', function (): void {
+    expect(Permission::query()->whereIn('name', ['sermon-series.manage', 'sermon-topics.manage'])->exists())
+        ->toBeFalse();
+});
+
+test('the simplified schema preserves sermons and speakers without classification storage', function (): void {
+    $speaker = Person::factory()->create();
+    $sermon = Sermon::factory()->for($speaker, 'speaker')->create();
+
+    expect(Schema::hasColumn('sermons', 'sermon_series_id'))->toBeFalse()
+        ->and(Schema::hasTable('sermon_topic'))->toBeFalse()
+        ->and(Schema::hasTable('sermon_series'))->toBeFalse()
+        ->and(Schema::hasTable('topics'))->toBeFalse()
+        ->and($sermon->fresh()?->speaker->is($speaker))->toBeTrue();
+});
+
+test('the public sermon card renders the preserved speaker', function (): void {
+    $speaker = Person::factory()->create(['first_name' => 'Grace', 'last_name' => 'Mensah']);
+    $sermon = Sermon::factory()->for($speaker, 'speaker')->published()->create(['title' => 'Steadfast Hope']);
+
+    $html = Blade::render('<x-sermons.card :sermon="$sermon" />', ['sermon' => $sermon]);
+
+    expect($html)->toContain('Steadfast Hope')
+        ->and($html)->toContain($speaker->full_name);
+});
+
 test('public archive and detail pages show only published sermons', function (): void {
     $published = Sermon::factory()->published()->create(['title' => 'Public Faith Message']);
     $draft = Sermon::factory()->create(['title' => 'Private Draft Message']);
@@ -255,7 +324,8 @@ test('public archive and detail pages show only published sermons', function ():
         ->assertSee($published->title)
         ->assertSee('youtube-nocookie.com/embed', false)
         ->assertSee('sandbox=', false)
-        ->assertSee('referrerpolicy=', false);
+        ->assertSee('referrerpolicy="strict-origin-when-cross-origin"', false)
+        ->assertDontSee('referrerpolicy="no-referrer"', false);
 
     $this->get(route('public.sermons.show', $draft))->assertNotFound();
 });

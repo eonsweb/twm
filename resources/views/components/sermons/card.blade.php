@@ -15,9 +15,6 @@
         <div class="space-y-3 p-5">
             <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
                 <time datetime="{{ $sermon->sermon_date->toDateString() }}">{{ $sermon->sermon_date->format('M j, Y') }}</time>
-                @if ($sermon->series)
-                    <span aria-hidden="true">&middot;</span><span>{{ $sermon->series->title }}</span>
-                @endif
             </div>
             <h2 class="text-xl font-bold tracking-tight text-slate-950 group-hover:text-church-maroon-800 dark:text-white dark:group-hover:text-church-gold-400">{{ $sermon->title }}</h2>
             <p class="text-sm font-semibold text-church-maroon-700 dark:text-church-gold-400">{{ $sermon->speaker->full_name }}</p>

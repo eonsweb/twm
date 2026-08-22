@@ -35,6 +35,7 @@
                 @canany([
                     \App\PermissionName::SermonsView->value,
                     \App\PermissionName::EventsView->value,
+                    \App\PermissionName::ServiceSchedulesView->value,
                     \App\PermissionName::MinistriesView->value,
                     \App\PermissionName::BooksView->value,
                     \App\PermissionName::LeadershipView->value,
@@ -43,11 +44,10 @@
                 ])
                     <flux:sidebar.group :heading="__('Content management')" class="admin-sidebar-group grid">
                         <x-admin.nav-item :label="__('Sermons')" icon="play-circle" :permission="\App\PermissionName::SermonsView->value" route-name="sermons.index" active-pattern="sermons.*" />
-                        <x-admin.nav-item :label="__('Sermon series')" icon="rectangle-stack" :permission="\App\PermissionName::SermonsView->value" route-name="sermon-series.index" active-pattern="sermon-series.*" />
                         <x-admin.nav-item :label="__('Sermon speakers')" icon="microphone" :permission="\App\PermissionName::SermonsView->value" route-name="speakers.index" active-pattern="speakers.*" />
-                        <x-admin.nav-item :label="__('Sermon topics')" icon="tag" :permission="\App\PermissionName::SermonsView->value" route-name="sermon-topics.index" active-pattern="sermon-topics.*" />
                         <x-admin.nav-item :label="__('Events')" icon="calendar-days" :permission="\App\PermissionName::EventsView->value" route-name="events.index" active-pattern="events.*" />
                         <x-admin.nav-item :label="__('Event types')" icon="tag" :permission="\App\PermissionName::EventTypesView->value" route-name="event-types.index" active-pattern="event-types.*" />
+                        <x-admin.nav-item :label="__('Service Schedules')" icon="clock" :permission="\App\PermissionName::ServiceSchedulesView->value" route-name="service-schedules.index" active-pattern="service-schedules.*" />
                         <x-admin.nav-item :label="__('Ministries')" icon="user-group" :permission="\App\PermissionName::MinistriesView->value" route-name="ministries.index" active-pattern="ministries.*" />
                         <x-admin.nav-item :label="__('Books')" icon="book-open" :permission="\App\PermissionName::BooksView->value" route-name="books.index" active-pattern="books.*" />
                         <x-admin.nav-item :label="__('Leadership')" icon="identification" :permission="\App\PermissionName::LeadershipView->value" route-name="leadership.index" active-pattern="leadership.*" />

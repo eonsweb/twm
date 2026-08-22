@@ -32,7 +32,6 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $thumbnail_path
  * @property string|null $external_thumbnail_url
  * @property int $speaker_id
- * @property int|null $sermon_series_id
  * @property string|null $service_name
  * @property string|null $location
  * @property SermonStatus $status
@@ -46,7 +45,6 @@ use Illuminate\Support\Facades\Storage;
  * @property int|null $updated_by
  * @property Carbon|null $deleted_at
  * @property-read Person $speaker
- * @property-read SermonSeries|null $series
  */
 #[Fillable([
     'title',
@@ -63,7 +61,6 @@ use Illuminate\Support\Facades\Storage;
     'thumbnail_path',
     'external_thumbnail_url',
     'speaker_id',
-    'sermon_series_id',
     'service_name',
     'location',
     'status',
@@ -96,18 +93,6 @@ class Sermon extends Model
     public function speaker(): BelongsTo
     {
         return $this->belongsTo(Person::class, 'speaker_id');
-    }
-
-    /** @return BelongsTo<SermonSeries, $this> */
-    public function series(): BelongsTo
-    {
-        return $this->belongsTo(SermonSeries::class, 'sermon_series_id')->withTrashed();
-    }
-
-    /** @return BelongsToMany<Topic, $this> */
-    public function topics(): BelongsToMany
-    {
-        return $this->belongsToMany(Topic::class);
     }
 
     /** @return BelongsToMany<Ministry, $this> */

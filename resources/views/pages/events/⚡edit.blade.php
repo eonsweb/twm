@@ -33,7 +33,13 @@ new #[Title('Edit Event')] class extends Component
     public function eventTypes()
     {
         return EventType::query()
-            ->where(fn ($query) => $query->where('is_active', true)->orWhereKey($this->event->event_type_id))
+            ->where(function ($query): void {
+                $query->where('is_active', true);
+
+                if ($this->event->event_type_id !== null) {
+                    $query->orWhere('id', $this->event->event_type_id);
+                }
+            })
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
@@ -42,7 +48,16 @@ new #[Title('Edit Event')] class extends Component
     #[Computed]
     public function ministries()
     {
-        return Ministry::query()->active()->ordered()->get(['id', 'name']);
+        return Ministry::query()
+            ->where(function ($query): void {
+                $query->active();
+
+                if ($this->event->ministry_id !== null) {
+                    $query->orWhere('id', $this->event->ministry_id);
+                }
+            })
+            ->ordered()
+            ->get(['id', 'name']);
     }
 
     public function saveDraft(SaveEvent $saveEvent): void

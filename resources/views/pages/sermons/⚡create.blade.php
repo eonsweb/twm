@@ -5,8 +5,6 @@ use App\Livewire\Forms\SermonForm;
 use App\Models\Person;
 use App\Models\Ministry;
 use App\Models\Sermon;
-use App\Models\SermonSeries;
-use App\Models\Topic;
 use App\Sermons\ExternalMedia;
 use App\SermonStatus;
 use Illuminate\Support\Facades\Auth;
@@ -32,18 +30,6 @@ new #[Title('Create Sermon')] class extends Component
     public function speakers()
     {
         return Person::query()->active()->orderBy('first_name')->orderBy('last_name')->get();
-    }
-
-    #[Computed]
-    public function series()
-    {
-        return SermonSeries::query()->orderBy('title')->get();
-    }
-
-    #[Computed]
-    public function topics()
-    {
-        return Topic::query()->active()->orderBy('name')->get();
     }
 
     #[Computed]
@@ -80,7 +66,6 @@ new #[Title('Create Sermon')] class extends Component
         $sermon = $saveSermon->handle(
             Auth::user(),
             $this->form->sermonData(),
-            $this->form->topicIds,
             $this->form->thumbnail,
             ministryIds: $this->form->ministryIds,
         );
@@ -101,7 +86,7 @@ new #[Title('Create Sermon')] class extends Component
     <x-admin.page-header :title="__('Create sermon')" :description="__('Add an externally hosted sermon and control when it becomes public.')" :eyebrow="__('Sermons')" />
 
     <form wire:submit="save" class="space-y-6">
-        <x-admin.sermon-form :form="$form" :speakers="$this->speakers" :series="$this->series" :topics="$this->topics" :ministries="$this->ministries" />
+        <x-admin.sermon-form :form="$form" :speakers="$this->speakers" :ministries="$this->ministries" />
         <div class="sticky bottom-4 z-20 flex flex-wrap justify-end gap-3 rounded-xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
             <flux:button :href="route('sermons.index')" variant="ghost" wire:navigate>{{ __('Cancel') }}</flux:button>
             <flux:button type="button" wire:click="saveDraft" wire:loading.attr="disabled">{{ __('Save as draft') }}</flux:button>

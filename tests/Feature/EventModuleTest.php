@@ -8,6 +8,7 @@ use App\EventStatus;
 use App\Models\ActivityLog;
 use App\Models\Event;
 use App\Models\EventType;
+use App\Models\Ministry;
 use App\Models\User;
 use App\PermissionName;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -62,6 +63,51 @@ test('authorized users can view event administration', function (): void {
     $this->actingAs($user)->get(route('events.index'))->assertOk();
 });
 
+test('authorized users can open the event creation page', function (): void {
+    $user = User::factory()->create();
+    $user->givePermissionTo(PermissionName::EventsCreate->value);
+
+    $this->actingAs($user)
+        ->get(route('events.create'))
+        ->assertOk()
+        ->assertSee('Create event');
+});
+
+test('authorized users can open known event edit routes', function (string $slug): void {
+    $user = User::factory()->create();
+    $user->givePermissionTo(PermissionName::EventsUpdate->value);
+    $eventType = EventType::factory()->create(['name' => 'Active Event Type']);
+    $event = Event::factory()->for($eventType)->create(['slug' => $slug]);
+
+    $this->actingAs($user)
+        ->get(route('events.edit', $event))
+        ->assertOk()
+        ->assertSee($event->title)
+        ->assertSee($eventType->name);
+})->with([
+    'joshua generation' => 'joshua-generation',
+    'sunday dominion service' => 'sunday-dominion-service',
+    'hour of warriors' => 'hour-of-warriors',
+]);
+
+test('event edit selectors retain inactive current assignments', function (): void {
+    $user = User::factory()->create();
+    $user->givePermissionTo(PermissionName::EventsUpdate->value);
+    $currentEventType = EventType::factory()->create(['name' => 'Current Inactive Type', 'is_active' => false]);
+    $otherInactiveEventType = EventType::factory()->create(['name' => 'Other Inactive Type', 'is_active' => false]);
+    $currentMinistry = Ministry::factory()->inactive()->create(['name' => 'Current Inactive Ministry']);
+    $otherInactiveMinistry = Ministry::factory()->inactive()->create(['name' => 'Other Inactive Ministry']);
+    $event = Event::factory()->for($currentEventType)->create(['ministry_id' => $currentMinistry->id]);
+
+    $this->actingAs($user)
+        ->get(route('events.edit', $event))
+        ->assertOk()
+        ->assertSee($currentEventType->name)
+        ->assertDontSee($otherInactiveEventType->name)
+        ->assertSee($currentMinistry->name)
+        ->assertDontSee($otherInactiveMinistry->name);
+});
+
 test('unauthorized users cannot access event administration', function (): void {
     $this->actingAs(User::factory()->create())->get(route('events.index'))->assertForbidden();
 });
@@ -90,6 +136,18 @@ test('required event fields are validated', function (): void {
         ->set('form.venueName', '')
         ->call('save')
         ->assertHasErrors(['form.title', 'form.startDate', 'form.venueName']);
+});
+
+test('event forms default to physical and reject a missing location type', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::EventsCreate->value);
+
+    Livewire::actingAs($actor)
+        ->test('pages::events.create')
+        ->assertSet('form.locationType', EventLocationType::Physical->value)
+        ->set('form.locationType', null)
+        ->call('save')
+        ->assertHasErrors(['form.locationType']);
 });
 
 test('an event end cannot precede its start', function (): void {

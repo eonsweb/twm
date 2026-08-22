@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Sermon;
-use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -13,7 +12,7 @@ new #[Layout('layouts.public')] class extends Component
     public function mount(Sermon $sermon): void
     {
         abort_unless($sermon->isPubliclyAvailable(), 404);
-        $this->sermon = $sermon->load(['speaker', 'series', 'topics']);
+        $this->sermon = $sermon->load('speaker');
     }
 
     public function title(): string
@@ -24,17 +23,11 @@ new #[Layout('layouts.public')] class extends Component
     #[Computed]
     public function related()
     {
-        $topicIds = $this->sermon->topics->modelKeys();
-
         return Sermon::query()
             ->publiclyAvailable()
             ->whereKeyNot($this->sermon->id)
-            ->where(function (Builder $query) use ($topicIds): void {
-                $query->where('sermon_series_id', $this->sermon->sermon_series_id)
-                    ->orWhere('speaker_id', $this->sermon->speaker_id)
-                    ->when($topicIds !== [], fn (Builder $query): Builder => $query->orWhereHas('topics', fn (Builder $topics): Builder => $topics->whereKey($topicIds)));
-            })
-            ->with(['speaker:id,title,first_name,middle_name,last_name', 'series:id,title'])
+            ->where('speaker_id', $this->sermon->speaker_id)
+            ->with('speaker:id,title,first_name,middle_name,last_name')
             ->orderByDesc('sermon_date')
             ->limit(3)
             ->get();
@@ -67,7 +60,7 @@ new #[Layout('layouts.public')] class extends Component
 
 <article>
     <header class="bg-church-maroon-950 py-12 text-white">
-        <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"><a href="{{ route('public.sermons.index') }}" class="text-sm font-semibold text-church-gold-400" wire:navigate>&larr; {{ __('All sermons') }}</a><div class="mt-6 flex flex-wrap gap-2 text-sm text-white/70"><time>{{ $sermon->sermon_date->format('F j, Y') }}</time>@if ($sermon->series)<span>&middot;</span><a href="{{ route('public.sermon-series.show', $sermon->series) }}" wire:navigate>{{ $sermon->series->title }}</a>@endif</div><h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{{ $sermon->title }}</h1><a href="{{ route('public.speakers.show', $sermon->speaker) }}" class="mt-4 inline-flex items-center gap-3 font-semibold text-church-gold-400" wire:navigate>@if ($sermon->speaker->photo_path)<img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($sermon->speaker->photo_path) }}" alt="" class="size-10 rounded-full object-cover">@endif{{ $sermon->speaker->full_name }}</a></div>
+        <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"><a href="{{ route('public.sermons.index') }}" class="text-sm font-semibold text-church-gold-400" wire:navigate>&larr; {{ __('All sermons') }}</a><div class="mt-6 text-sm text-white/70"><time>{{ $sermon->sermon_date->format('F j, Y') }}</time></div><h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{{ $sermon->title }}</h1><a href="{{ route('public.speakers.show', $sermon->speaker) }}" class="mt-4 inline-flex items-center gap-3 font-semibold text-church-gold-400" wire:navigate>@if ($sermon->speaker->photo_path)<img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($sermon->speaker->photo_path) }}" alt="" class="size-10 rounded-full object-cover">@endif{{ $sermon->speaker->full_name }}</a></div>
     </header>
     <div class="mx-auto max-w-5xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
         <x-sermons.media-player :sermon="$sermon" />
@@ -81,7 +74,6 @@ new #[Layout('layouts.public')] class extends Component
                 @if ($sermon->service_name)<div><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Service') }}</p><p class="mt-1">{{ $sermon->service_name }}</p></div>@endif
                 @if ($sermon->location)<div><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Location') }}</p><p class="mt-1">{{ $sermon->location }}</p></div>@endif
                 <a href="{{ $sermon->external_media_url }}" target="_blank" rel="noopener noreferrer nofollow" class="inline-flex w-full justify-center rounded-lg bg-church-maroon-900 px-4 py-3 font-semibold text-white">{{ __('Open on :platform', ['platform' => $sermon->media_platform->label()]) }}</a>
-                <div class="flex flex-wrap gap-2">@foreach ($sermon->topics as $topic)<flux:badge wire:key="detail-topic-{{ $topic->id }}">{{ $topic->name }}</flux:badge>@endforeach</div>
                 <div><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Share') }}</p><div class="mt-2 flex gap-2"><a class="text-sm underline" href="https://www.facebook.com/sharer/sharer.php?u={{ rawurlencode(route('public.sermons.show', $sermon)) }}" target="_blank" rel="noopener noreferrer">{{ __('Facebook') }}</a><a class="text-sm underline" href="https://twitter.com/intent/tweet?url={{ rawurlencode(route('public.sermons.show', $sermon)) }}&text={{ rawurlencode($sermon->title) }}" target="_blank" rel="noopener noreferrer">{{ __('X') }}</a></div></div>
             </aside>
         </div>

@@ -58,11 +58,14 @@ new #[Title('Events')] class extends Component
             ->withTrashed()
             ->select([
                 'id', 'event_type_id', 'created_by', 'title', 'slug', 'featured_image',
+                'featured_image_id', 'icon',
                 'location_type', 'venue_name', 'city', 'meeting_url', 'starts_at', 'ends_at',
-                'timezone', 'is_all_day', 'is_featured', 'is_livestreamed', 'status',
+                'timezone', 'schedule_type', 'is_all_day', 'is_recurring', 'recurrence_rule',
+                'recurrence_interval', 'recurrence_days', 'recurrence_week_of_month', 'recurrence_month',
+                'recurrence_day_of_month', 'recurrence_end_date', 'is_featured', 'is_active', 'sort_order', 'is_livestreamed', 'status',
                 'published_at', 'updated_at', 'deleted_at',
             ])
-            ->with(['eventType:id,name,color', 'creator:id,name'])
+            ->with(['eventType:id,name,color,icon', 'featuredImage:id,disk,path,media_type,visibility,status', 'creator:id,name'])
             ->when($this->search !== '', function (Builder $query): void {
                 $search = '%'.trim($this->search).'%';
                 $query->where(function (Builder $query) use ($search): void {
@@ -212,8 +215,8 @@ new #[Title('Events')] class extends Component
                     <flux:table :paginate="$this->events">
                         <flux:table.columns>
                             <flux:table.column class="ps-4">{{ __('Event') }}</flux:table.column>
-                            <flux:table.column>{{ __('Location') }}</flux:table.column>
-                            <flux:table.column>{{ __('Date and time') }}</flux:table.column>
+                            <flux:table.column>{{ __('Schedule') }}</flux:table.column>
+                            <flux:table.column>{{ __('Next occurrence') }}</flux:table.column>
                             <flux:table.column>{{ __('Status') }}</flux:table.column>
                             <flux:table.column class="hidden xl:table-cell">{{ __('Creator / updated') }}</flux:table.column>
                             <flux:table.column align="end" class="pe-4">{{ __('Actions') }}</flux:table.column>
@@ -224,18 +227,19 @@ new #[Title('Events')] class extends Component
                                     <flux:table.cell class="ps-4">
                                         <div class="flex min-w-72 items-center gap-3">
                                             <div class="flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-church-maroon-950 text-church-gold-400">
-                                                @if ($event->imageUrl())<img src="{{ $event->imageUrl() }}" alt="" class="h-full w-full object-cover">@else<flux:icon.calendar-days class="size-6" />@endif
+                                                @if ($event->imageUrl())<img src="{{ $event->imageUrl() }}" alt="" class="h-full w-full object-cover">@else<flux:icon :name="$event->effectiveIcon()" class="size-6" />@endif
                                             </div>
                                             <div><p class="font-semibold text-slate-950 dark:text-white">{{ $event->title }}</p><p class="text-xs text-slate-500">{{ $event->eventType?->name ?? __('Uncategorized') }}</p></div>
                                         </div>
                                     </flux:table.cell>
-                                    <flux:table.cell><p>{{ $event->locationLabel() }}</p>@if ($event->meeting_url)<p class="text-xs text-blue-600">{{ __('Online access') }}</p>@endif</flux:table.cell>
-                                    <flux:table.cell><p class="max-w-64">{{ $event->formattedDateRange() }}</p></flux:table.cell>
+                                    <flux:table.cell><p class="max-w-72">{{ $event->scheduleLabel() }}</p></flux:table.cell>
+                                    <flux:table.cell>@if ($next = $event->nextOccurrence())<p>{{ $next->setTimezone($event->timezone)->format('j M Y') }}</p><p class="text-xs text-slate-500">{{ $next->setTimezone($event->timezone)->format('g:i A') }}</p>@else<span class="text-slate-500">{{ __('No future date') }}</span>@endif</flux:table.cell>
                                     <flux:table.cell>
                                         <div class="flex max-w-48 flex-wrap gap-1">
                                             <flux:badge :color="$event->deleted_at ? 'red' : match($event->status) { EventStatus::Published => 'green', EventStatus::Scheduled => 'blue', EventStatus::Cancelled => 'red', EventStatus::Completed => 'zinc', default => 'amber' }">{{ $event->deleted_at ? __('Deleted') : $event->status->label() }}</flux:badge>
                                             @if ($event->is_featured)<flux:badge color="amber">{{ __('Featured') }}</flux:badge>@endif
                                             @if ($event->is_livestreamed)<flux:badge color="blue">{{ __('Livestream') }}</flux:badge>@endif
+                                            @if (! $event->is_active)<flux:badge color="zinc">{{ __('Inactive') }}</flux:badge>@endif
                                         </div>
                                     </flux:table.cell>
                                     <flux:table.cell class="hidden xl:table-cell"><p>{{ $event->creator?->name ?? __('Unknown') }}</p><p class="text-xs text-slate-500">{{ $event->updated_at->diffForHumans() }}</p></flux:table.cell>
@@ -253,9 +257,9 @@ new #[Title('Events')] class extends Component
                         <article wire:key="event-card-{{ $event->id }}" class="rounded-xl border border-slate-200 p-4 dark:border-zinc-700">
                             <div class="flex gap-3">
                                 <div class="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-church-maroon-950 text-church-gold-400">
-                                    @if ($event->imageUrl())<img src="{{ $event->imageUrl() }}" alt="" class="h-full w-full object-cover">@else<flux:icon.calendar-days class="size-6" />@endif
+                                    @if ($event->imageUrl())<img src="{{ $event->imageUrl() }}" alt="" class="h-full w-full object-cover">@else<flux:icon :name="$event->effectiveIcon()" class="size-6" />@endif
                                 </div>
-                                <div class="min-w-0 flex-1"><h3 class="font-semibold">{{ $event->title }}</h3><p class="text-xs text-slate-500">{{ $event->formattedDateRange() }}</p><p class="mt-1 text-xs">{{ $event->locationLabel() }}</p></div>
+                                <div class="min-w-0 flex-1"><h3 class="font-semibold">{{ $event->title }}</h3><p class="text-xs text-slate-500">{{ $event->scheduleLabel() }}</p><p class="mt-1 text-xs">{{ $event->nextOccurrence()?->setTimezone($event->timezone)->format('j M Y · g:i A') ?? __('No future date') }}</p></div>
                                 <x-events.admin-actions :event="$event" />
                             </div>
                         </article>

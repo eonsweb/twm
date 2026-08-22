@@ -28,4 +28,9 @@ class ServiceScheduleFactory extends Factory
             'is_active' => true,
         ];
     }
+
+    public function inactive(): static
+    {
+        return $this->state(fn (): array => ['is_active' => false]);
+    }
 }

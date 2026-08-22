@@ -17,8 +17,6 @@ class DuplicateSermon
     public function handle(User $actor, Sermon $source): Sermon
     {
         Gate::forUser($actor)->authorize('duplicate', $source);
-        $source->loadMissing('topics:id');
-
         $duplicate = DB::transaction(function () use ($actor, $source): Sermon {
             $duplicate = $source->replicate([
                 'slug',
@@ -41,9 +39,8 @@ class DuplicateSermon
                 'created_by' => $actor->id,
                 'updated_by' => $actor->id,
             ])->save();
-            $duplicate->topics()->sync($source->topics->modelKeys());
 
-            return $duplicate->load(['speaker', 'series', 'topics']);
+            return $duplicate->load('speaker');
         });
 
         $this->activityLogger->log(

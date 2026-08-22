@@ -5,8 +5,6 @@ use App\Livewire\Forms\SermonForm;
 use App\Models\Person;
 use App\Models\Ministry;
 use App\Models\Sermon;
-use App\Models\SermonSeries;
-use App\Models\Topic;
 use App\Sermons\ExternalMedia;
 use App\SermonStatus;
 use Flux\Flux;
@@ -36,18 +34,6 @@ new #[Title('Edit Sermon')] class extends Component
     public function speakers()
     {
         return Person::query()->active()->orderBy('first_name')->orderBy('last_name')->get();
-    }
-
-    #[Computed]
-    public function series()
-    {
-        return SermonSeries::query()->orderBy('title')->get();
-    }
-
-    #[Computed]
-    public function topics()
-    {
-        return Topic::query()->active()->orderBy('name')->get();
     }
 
     #[Computed]
@@ -84,7 +70,6 @@ new #[Title('Edit Sermon')] class extends Component
         $this->sermon = $saveSermon->handle(
             Auth::user(),
             $this->form->sermonData(),
-            $this->form->topicIds,
             $this->form->thumbnail,
             $this->form->removeThumbnail,
             $this->sermon,
@@ -119,8 +104,6 @@ new #[Title('Edit Sermon')] class extends Component
         <x-admin.sermon-form
             :form="$form"
             :speakers="$this->speakers"
-            :series="$this->series"
-            :topics="$this->topics"
             :ministries="$this->ministries"
             :current-thumbnail-url="$sermon->thumbnailUrl()"
         />

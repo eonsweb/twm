@@ -12,7 +12,7 @@ new #[Title('Sermon Preview')] class extends Component
     public function mount(Sermon $sermon): void
     {
         Gate::authorize('view', $sermon);
-        $this->sermon = $sermon->load(['speaker', 'series', 'topics', 'creator', 'updater']);
+        $this->sermon = $sermon->load(['speaker', 'creator', 'updater']);
     }
 };
 ?>
@@ -33,11 +33,9 @@ new #[Title('Sermon Preview')] class extends Component
         </section>
         <aside class="space-y-3 rounded-xl border border-slate-200 bg-white p-6 text-sm dark:border-zinc-800 dark:bg-zinc-900">
             <p><strong>{{ __('Speaker:') }}</strong> {{ $sermon->speaker->full_name }}</p>
-            <p><strong>{{ __('Series:') }}</strong> {{ $sermon->series?->title ?? __('None') }}</p>
             <p><strong>{{ __('Sermon date:') }}</strong> {{ $sermon->sermon_date->format('M j, Y') }}</p>
             <p><strong>{{ __('Scripture:') }}</strong> {{ $sermon->scripture_reference ?: __('Not set') }}</p>
             <p><strong>{{ __('Created by:') }}</strong> {{ $sermon->creator?->name ?? __('Unknown') }}</p>
-            <div class="flex flex-wrap gap-2">@foreach ($sermon->topics as $topic)<flux:badge wire:key="preview-topic-{{ $topic->id }}">{{ $topic->name }}</flux:badge>@endforeach</div>
         </aside>
     </div>
 </div>

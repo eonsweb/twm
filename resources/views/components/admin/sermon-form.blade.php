@@ -1,8 +1,6 @@
 @props([
     'form',
     'speakers',
-    'series',
-    'topics',
     'ministries' => [],
     'currentThumbnailUrl' => null,
 ])
@@ -26,12 +24,6 @@
                             <flux:select.option :value="$speaker->id" wire:key="speaker-{{ $speaker->id }}">{{ $speaker->full_name }}</flux:select.option>
                         @endforeach
                     </flux:select>
-                    <flux:select wire:model="form.sermonSeriesId" :label="__('Series')">
-                        <flux:select.option value="">{{ __('No series') }}</flux:select.option>
-                        @foreach ($series as $sermonSeries)
-                            <flux:select.option :value="$sermonSeries->id" wire:key="series-{{ $sermonSeries->id }}">{{ $sermonSeries->title }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
                     <flux:input wire:model="form.sermonDate" :label="__('Sermon date')" type="date" required />
                     <flux:input wire:model="form.duration" :label="__('Duration')" placeholder="45:30" description="{{ __('Use MM:SS or HH:MM:SS.') }}" />
                     <flux:input wire:model="form.serviceName" :label="__('Service name')" />
@@ -40,17 +32,6 @@
                 <flux:input wire:model="form.scriptureReference" :label="__('Scripture reference')" placeholder="Romans 8:28" />
                 <flux:textarea wire:model="form.summary" :label="__('Summary')" rows="4" />
                 <flux:textarea wire:model="form.description" :label="__('Sermon notes')" rows="12" description="{{ __('Plain text only. Media embeds and HTML are not accepted.') }}" />
-                <flux:field>
-                    <flux:label>{{ __('Topics') }}</flux:label>
-                    <div class="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-2 dark:border-zinc-700">
-                        @forelse ($topics as $topic)
-                            <flux:checkbox wire:model="form.topicIds" :value="$topic->id" :label="$topic->name" wire:key="topic-{{ $topic->id }}" />
-                        @empty
-                            <flux:text>{{ __('No topics have been created yet.') }}</flux:text>
-                        @endforelse
-                    </div>
-                    <flux:error name="form.topicIds" />
-                </flux:field>
                 <flux:field>
                     <flux:label>{{ __('Related ministries') }}</flux:label>
                     <div class="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-2 dark:border-zinc-700">
@@ -78,7 +59,7 @@
                 <div wire:loading wire:target="inspectMedia" class="text-sm text-church-maroon-700 dark:text-church-gold-400">{{ __('Checking media URL...') }}</div>
                 @if ($canPreviewEmbed)
                     <div class="aspect-video overflow-hidden rounded-xl bg-slate-950">
-                        <iframe src="{{ $form->embedUrl }}" title="{{ __('Media preview') }}" class="h-full w-full border-0" sandbox="allow-scripts allow-same-origin allow-presentation" referrerpolicy="no-referrer"></iframe>
+                        <iframe src="{{ $form->embedUrl }}" title="{{ __('Media preview') }}" class="h-full w-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen sandbox="allow-scripts allow-same-origin allow-presentation" referrerpolicy="strict-origin-when-cross-origin"></iframe>
                     </div>
                 @elseif ($form->externalMediaUrl)
                     <flux:callout icon="arrow-top-right-on-square">{{ __('This host will use a safe external-link fallback instead of an iframe.') }}</flux:callout>

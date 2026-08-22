@@ -18,7 +18,7 @@ class HomepageContent
 {
     /** @var list<string> */
     private const DEFAULT_SECTIONS = [
-        'services', 'welcome', 'sermon_events', 'ministries', 'calls_to_action', 'featured_book', 'testimonials',
+        'services', 'welcome_upcoming_event', 'ministries', 'calls_to_action', 'featured_book', 'testimonials',
     ];
 
     public function __construct(private readonly SettingManager $settings) {}
@@ -65,10 +65,8 @@ class HomepageContent
     private function serviceSchedules(): Collection
     {
         return ServiceSchedule::query()
-            ->where('is_active', true)
-            ->orderBy('display_order')
-            ->orderBy('id')
-            ->limit(3)
+            ->active()
+            ->ordered()
             ->get(['id', 'name', 'day_of_week', 'start_time', 'end_time', 'location']);
     }
 
@@ -97,11 +95,13 @@ class HomepageContent
         return Sermon::query()
             ->publiclyAvailable()
             ->with('speaker:id,title,first_name,middle_name,last_name,slug')
+            ->orderByDesc('is_featured')
             ->latest('sermon_date')
             ->latest('published_at')
             ->first([
                 'id', 'title', 'slug', 'summary', 'sermon_date', 'external_media_url',
-                'thumbnail_path', 'external_thumbnail_url', 'speaker_id', 'published_at',
+                'media_platform', 'media_type', 'embed_url', 'thumbnail_path',
+                'external_thumbnail_url', 'speaker_id', 'published_at', 'is_featured',
             ]);
     }
 
@@ -109,13 +109,20 @@ class HomepageContent
     private function upcomingEvents(): Collection
     {
         return Event::query()
+            ->active()
             ->published()
             ->upcoming()
             ->where('status', EventStatus::Published)
-            ->with('eventType:id,name')
+            ->with(['eventType:id,name,icon', 'featuredImage:id,disk,path,media_type,visibility,status'])
             ->oldest('starts_at')
+            ->orderBy('sort_order')
             ->limit(3)
-            ->get(['id', 'event_type_id', 'title', 'slug', 'starts_at', 'ends_at', 'timezone', 'is_all_day']);
+            ->get([
+                'id', 'event_type_id', 'featured_image_id', 'title', 'slug', 'icon', 'starts_at', 'ends_at',
+                'timezone', 'schedule_type', 'is_all_day', 'is_recurring', 'recurrence_interval',
+                'recurrence_days', 'recurrence_week_of_month', 'recurrence_month',
+                'recurrence_day_of_month', 'recurrence_end_date', 'sort_order',
+            ]);
     }
 
     /** @return Collection<int, Ministry> */

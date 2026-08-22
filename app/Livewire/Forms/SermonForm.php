@@ -5,8 +5,6 @@ namespace App\Livewire\Forms;
 use App\Models\Ministry;
 use App\Models\Person;
 use App\Models\Sermon;
-use App\Models\SermonSeries;
-use App\Models\Topic;
 use App\SermonMediaPlatform;
 use App\SermonMediaType;
 use App\Sermons\ExternalMedia;
@@ -53,11 +51,6 @@ class SermonForm extends Form
 
     public int|string|null $speakerId = null;
 
-    public int|string|null $sermonSeriesId = null;
-
-    /** @var array<int, int|string> */
-    public array $topicIds = [];
-
     /** @var list<int|string> */
     public array $ministryIds = [];
 
@@ -81,7 +74,7 @@ class SermonForm extends Form
 
     public function setSermon(Sermon $sermon): void
     {
-        $sermon->loadMissing(['topics:id', 'ministries:id']);
+        $sermon->loadMissing('ministries:id');
         $this->sermonId = $sermon->id;
         $this->title = $sermon->title;
         $this->slug = $sermon->slug;
@@ -97,10 +90,6 @@ class SermonForm extends Form
         $this->embedUrl = $sermon->embed_url ?? '';
         $this->externalThumbnailUrl = $sermon->external_thumbnail_url ?? '';
         $this->speakerId = $sermon->speaker_id;
-        $this->sermonSeriesId = $sermon->sermon_series_id;
-        $this->topicIds = array_values(
-            $sermon->topics->map(fn (Topic $topic): int => $topic->id)->all(),
-        );
         $this->ministryIds = array_values($sermon->ministries->modelKeys());
         $this->serviceName = $sermon->service_name ?? '';
         $this->location = $sermon->location ?? '';
@@ -130,13 +119,6 @@ class SermonForm extends Form
         $this->title = Str::squish($this->title);
         $this->slug = Str::slug($this->slug !== '' ? $this->slug : $this->title);
         $this->speakerId = filled($this->speakerId) ? (int) $this->speakerId : null;
-        $this->sermonSeriesId = filled($this->sermonSeriesId) ? (int) $this->sermonSeriesId : null;
-        $this->topicIds = array_values(
-            collect($this->topicIds)
-                ->map(fn (int|string $id): int => (int) $id)
-                ->unique()
-                ->all(),
-        );
         $this->ministryIds = array_values(collect($this->ministryIds)
             ->map(fn (int|string $id): int => (int) $id)
             ->unique()
@@ -190,9 +172,6 @@ class SermonForm extends Form
             ],
             'removeThumbnail' => ['boolean'],
             'speakerId' => ['required', 'integer', Rule::exists(Person::class, 'id')->where('is_active', true)],
-            'sermonSeriesId' => ['nullable', 'integer', Rule::exists(SermonSeries::class, 'id')->withoutTrashed()],
-            'topicIds' => ['array', 'max:20'],
-            'topicIds.*' => ['integer', 'distinct', Rule::exists(Topic::class, 'id')->where('is_active', true)],
             'ministryIds' => ['array', 'max:20'],
             'ministryIds.*' => ['integer', 'distinct', Rule::exists(Ministry::class, 'id')->withoutTrashed()],
             'serviceName' => ['nullable', 'string', 'max:255'],
@@ -235,7 +214,6 @@ class SermonForm extends Form
             'embed_url' => $this->embedUrl,
             'external_thumbnail_url' => $this->externalThumbnailUrl,
             'speaker_id' => $this->speakerId,
-            'sermon_series_id' => $this->sermonSeriesId,
             'service_name' => $this->serviceName,
             'location' => $this->location,
             'status' => $this->status,

@@ -1,29 +1,508 @@
 <?php
+
 use App\Activity\ActivityLogger;
 use App\Blog\HtmlSanitizer;
+use App\MediaStatus;
+use App\MediaType;
+use App\MediaVisibility;
+use App\Models\Media;
 use App\Models\Page;
 use App\Models\PageSection;
 use App\PageSectionType;
+use App\Pages\HomepageSectionSynchronizer;
+use Flux\Flux;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-new #[Layout('layouts.app')] class extends Component {
-    public Page $page; public ?int $sectionId=null; public string $sectionType='rich-text'; public string $name=''; public string $heading=''; public string $subheading=''; public string $content=''; public string $settings='{}'; public bool $isVisible=true;
-    public function mount(Page $page): void { Gate::authorize('manageSections',$page); $this->page=$page->load(['sections.backgroundImage']); }
-    public function edit(int $id): void { Gate::authorize('manageSections',$this->page); $section=$this->page->sections()->findOrFail($id); $this->sectionId=$section->id; $this->sectionType=$section->section_type->value; $this->name=$section->name; $this->heading=$section->heading??''; $this->subheading=$section->subheading??''; $this->content=$section->content??''; $this->settings=json_encode($section->settings??[],JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES); $this->isVisible=$section->is_visible; }
-    public function save(HtmlSanitizer $sanitizer,ActivityLogger $logger): void { Gate::authorize('manageSections',$this->page); $validated=$this->validate(['sectionType'=>['required',Rule::enum(PageSectionType::class)],'name'=>['required','string','max:255'],'heading'=>['nullable','string','max:255'],'subheading'=>['nullable','string','max:255'],'content'=>['nullable','string','max:200000'],'settings'=>['required','json'],'isVisible'=>['boolean']]); $settings=$this->validatedSettings($validated['sectionType'],$validated['settings']); $section=$this->sectionId?$this->page->sections()->findOrFail($this->sectionId):new PageSection(['page_id'=>$this->page->id,'sort_order'=>(int)$this->page->sections()->max('sort_order')+1,'created_by'=>auth()->id()]); $event=$section->exists?'updated':'added'; $section->fill(['section_type'=>$validated['sectionType'],'name'=>$validated['name'],'heading'=>$validated['heading'],'subheading'=>$validated['subheading'],'content'=>$sanitizer->sanitize($validated['content']),'settings'=>$settings,'is_visible'=>$validated['isVisible'],'updated_by'=>auth()->id()])->save(); $logger->log('pages','page-section.'.$event,str($event)->headline().' section "'.$section->name.'".',$this->page,auth()->user(),properties:['section_id'=>$section->id]); $this->resetForm(); $this->page->load('sections'); }
-    public function toggle(int $id,ActivityLogger $logger): void { Gate::authorize('manageSections',$this->page); $section=$this->page->sections()->findOrFail($id); $section->update(['is_visible'=>!$section->is_visible,'updated_by'=>auth()->id()]); $logger->log('pages','page-section.toggled','Changed section visibility.',$this->page,auth()->user(),properties:['section_id'=>$section->id,'is_visible'=>$section->is_visible]); $this->page->load('sections'); }
-    public function move(int $id,string $direction,ActivityLogger $logger): void { Gate::authorize('manageSections',$this->page); $section=$this->page->sections()->findOrFail($id); $operator=$direction==='up'?'<': '>'; $order=$direction==='up'?'desc':'asc'; $other=$this->page->sections()->where('sort_order',$operator,$section->sort_order)->orderBy('sort_order',$order)->first(); if(!$other){return;} DB::transaction(function()use($section,$other){[$section->sort_order,$other->sort_order]=[$other->sort_order,$section->sort_order];$section->save();$other->save();}); $logger->log('pages','page-section.reordered','Reordered page sections.',$this->page,auth()->user()); $this->page->load('sections'); }
-    public function duplicate(int $id): void { Gate::authorize('manageSections',$this->page); $section=$this->page->sections()->findOrFail($id); $copy=$section->replicate();$copy->name=$section->name.' (Copy)';$copy->sort_order=(int)$this->page->sections()->max('sort_order')+1;$copy->created_by=auth()->id();$copy->updated_by=auth()->id();$copy->save();$this->page->load('sections'); }
-    public function delete(int $id): void { Gate::authorize('manageSections',$this->page); $this->page->sections()->findOrFail($id)->delete(); $this->page->load('sections'); }
-    public function resetForm(): void { $this->reset('sectionId','name','heading','subheading','content');$this->sectionType='rich-text';$this->settings='{}';$this->isVisible=true; }
-    private function validatedSettings(string $type,string $json): array { $settings=json_decode($json,true,512,JSON_THROW_ON_ERROR); $rules=match($type){'hero'=>['primary_label'=>['nullable','string','max:100'],'primary_url'=>['nullable','string','max:2048'],'secondary_label'=>['nullable','string','max:100'],'secondary_url'=>['nullable','string','max:2048'],'eyebrow'=>['nullable','string','max:150'],'overlay'=>['nullable','integer','between:0,100'],'alignment'=>['nullable',Rule::in(['left','center','right'])]],'featured-sermons','upcoming-events','latest-posts','ministries-grid','leadership-grid','books-grid'=>['limit'=>['nullable','integer','between:1,24'],'sort'=>['nullable',Rule::in(['latest','oldest','featured','manual'])],'category_id'=>['nullable','integer'],'series_id'=>['nullable','integer'],'speaker_id'=>['nullable','integer'],'show_view_all'=>['nullable','boolean']],'call-to-action','donation-callout','prayer-request-callout'=>['button_label'=>['nullable','string','max:100'],'url'=>['nullable','string','max:2048']],default=>[]}; $unknown=array_diff(array_keys($settings),array_keys($rules)); if($unknown!==[]){throw ValidationException::withMessages(['settings'=>__('Unsupported setting: :setting',['setting'=>reset($unknown)])]);} return Validator::make($settings,$rules)->validate(); }
-}; ?>
-<main id="admin-main" class="p-4 sm:p-6 lg:p-8"><div class="mx-auto max-w-7xl space-y-6"><x-admin.page-header :title="__('Sections: :page',['page'=>$page->title])" :description="__('Add, configure, hide, duplicate, and reorder approved section types.')"><x-slot:actions><flux:button :href="route('pages.edit',$page)" wire:navigate>{{ __('Back to page') }}</flux:button></x-slot:actions></x-admin.page-header>
-<div class="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)]"><div class="space-y-3">@forelse($page->sections as $section)<flux:card wire:key="section-{{ $section->id }}" class="flex flex-col gap-3 sm:flex-row sm:items-center"><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><flux:heading>{{ $section->name }}</flux:heading><flux:badge size="sm">{{ $section->section_type->label() }}</flux:badge>@unless($section->is_visible)<flux:badge size="sm" color="zinc">{{ __('Hidden') }}</flux:badge>@endunless</div><p class="mt-1 truncate text-sm text-slate-500">{{ $section->heading }}</p></div><div class="flex flex-wrap gap-2"><flux:button size="sm" icon="arrow-up" wire:click="move({{ $section->id }},'up')" aria-label="{{ __('Move up') }}"/><flux:button size="sm" icon="arrow-down" wire:click="move({{ $section->id }},'down')" aria-label="{{ __('Move down') }}"/><flux:button size="sm" wire:click="toggle({{ $section->id }})">{{ $section->is_visible?__('Hide'):__('Show') }}</flux:button><flux:button size="sm" wire:click="duplicate({{ $section->id }})" icon="document-duplicate"/><flux:button size="sm" wire:click="edit({{ $section->id }})" icon="pencil"/><flux:button size="sm" variant="danger" wire:click="delete({{ $section->id }})" wire:confirm="{{ __('Delete this section?') }}" icon="trash"/></div></flux:card>@empty<x-admin.empty-state icon="rectangle-stack" :title="__('No sections yet')" :description="__('Add the first reusable section using the form.')"/>@endforelse</div>
-<form wire:submit="save"><flux:card class="space-y-5"><flux:heading size="lg">{{ $sectionId?__('Edit section'):__('Add section') }}</flux:heading><flux:select wire:model.live="sectionType" :label="__('Section type')">@foreach(PageSectionType::cases() as $type)<flux:select.option :value="$type->value">{{ $type->label() }}</flux:select.option>@endforeach</flux:select><flux:input wire:model="name" :label="__('Internal name')" required/><flux:input wire:model="heading" :label="__('Heading')"/><flux:input wire:model="subheading" :label="__('Subheading')"/><flux:textarea wire:model="content" :label="__('Content')" rows="6"/><flux:textarea wire:model="settings" :label="__('Section settings (JSON)')" rows="9" class="font-mono text-sm" description="{{ __('Only validated JSON for the selected approved section type is stored.') }}"/><flux:switch wire:model="isVisible" :label="__('Visible')"/><div class="flex gap-2"><flux:button type="submit" variant="primary">{{ __('Save section') }}</flux:button>@if($sectionId)<flux:button type="button" wire:click="resetForm">{{ __('Cancel') }}</flux:button>@endif</div></flux:card></form></div></div></main>
+new #[Layout('layouts.app')] class extends Component
+{
+    public Page $page;
+    public ?int $sectionId = null;
+    public string $sectionType = 'rich-text';
+    public string $name = '';
+    public string $heading = '';
+    public string $subheading = '';
+    public string $content = '';
+    public string $settings = '{}';
+    public bool $isVisible = true;
+
+    /** @var list<int> */
+    public array $backgroundMediaIds = [];
+
+    public string $backgroundAlt = '';
+    public string $welcomeSignature = '';
+    public string $welcomePastorName = '';
+    public string $welcomePastorRole = '';
+
+    public function mount(Page $page, HomepageSectionSynchronizer $homepageSections): void
+    {
+        Gate::authorize('manageSections', $page);
+        $homepageSections->sync($page);
+        $this->page = $page->refresh()->load(['sections.backgroundImage']);
+    }
+
+    #[Computed]
+    public function selectedBackgroundMedia(): ?Media
+    {
+        if ($this->backgroundMediaIds === []) {
+            return null;
+        }
+
+        return Media::query()
+            ->whereKey($this->backgroundMediaIds[0])
+            ->first(['id', 'name', 'path', 'disk', 'media_type', 'visibility', 'status', 'alt_text', 'width', 'height']);
+    }
+
+    public function edit(int $id): void
+    {
+        Gate::authorize('manageSections', $this->page);
+        $section = $this->page->sections()->findOrFail($id);
+
+        $this->sectionId = $section->id;
+        $this->sectionType = $section->section_type->value;
+        $this->name = $section->name;
+        $this->heading = $section->heading ?? '';
+        $this->subheading = $section->subheading ?? '';
+        $this->content = $section->content ?? '';
+        $this->settings = json_encode(
+            collect($section->settings ?? [])->except([
+                'background_alt',
+                'pastor_image_alt',
+                'signature_text',
+                'pastor_name',
+                'pastor_title',
+                'welcome_signature',
+                'welcome_pastor_name',
+                'welcome_pastor_role',
+            ])->all(),
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES,
+        );
+        $this->isVisible = $section->is_visible;
+        $this->backgroundMediaIds = $section->background_image_id === null ? [] : [$section->background_image_id];
+        $this->backgroundAlt = (string) data_get(
+            $section->settings,
+            in_array($section->section_type, [PageSectionType::Welcome, PageSectionType::WelcomeUpcomingEvent], true)
+                ? 'pastor_image_alt'
+                : 'background_alt',
+            '',
+        );
+        $this->welcomeSignature = (string) (data_get($section->settings, 'welcome_signature') ?: data_get($section->settings, 'signature_text', ''));
+        $this->welcomePastorName = (string) (data_get($section->settings, 'welcome_pastor_name') ?: data_get($section->settings, 'pastor_name', ''));
+        $this->welcomePastorRole = (string) (data_get($section->settings, 'welcome_pastor_role') ?: data_get($section->settings, 'pastor_title', ''));
+        unset($this->selectedBackgroundMedia);
+    }
+
+    public function save(HtmlSanitizer $sanitizer, ActivityLogger $logger): void
+    {
+        Gate::authorize('manageSections', $this->page);
+
+        $validated = $this->validate([
+            'sectionType' => ['required', Rule::enum(PageSectionType::class)],
+            'name' => ['required', 'string', 'max:255'],
+            'heading' => ['nullable', 'string', 'max:255'],
+            'subheading' => ['nullable', 'string', 'max:255'],
+            'content' => ['nullable', 'string', 'max:200000'],
+            'settings' => ['required', 'json'],
+            'isVisible' => ['boolean'],
+            'backgroundMediaIds' => ['array', 'max:1'],
+            'backgroundMediaIds.*' => ['integer', 'distinct', Rule::exists(Media::class, 'id')->withoutTrashed()],
+            'backgroundAlt' => ['nullable', 'string', 'max:255'],
+            'welcomeSignature' => ['nullable', 'string', 'max:255'],
+            'welcomePastorName' => ['nullable', 'string', 'max:255'],
+            'welcomePastorRole' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if ($this->page->is_homepage
+            && $validated['sectionType'] === PageSectionType::Welcome->value
+            && $this->page->sections()
+                ->where('section_type', PageSectionType::Welcome->value)
+                ->when($this->sectionId !== null, fn ($query) => $query->whereKeyNot($this->sectionId))
+                ->exists()) {
+            throw ValidationException::withMessages([
+                'sectionType' => __('The homepage already has a Welcome Section.'),
+            ]);
+        }
+
+        $usesSectionImage = in_array($validated['sectionType'], [
+            PageSectionType::Hero->value,
+            PageSectionType::Welcome->value,
+            PageSectionType::WelcomeUpcomingEvent->value,
+        ], true);
+        $backgroundMedia = $usesSectionImage
+            ? $this->validatedBackgroundMedia()
+            : null;
+        $settings = $this->validatedSettings($validated['sectionType'], $validated['settings']);
+
+        if (in_array($validated['sectionType'], [PageSectionType::Welcome->value, PageSectionType::WelcomeUpcomingEvent->value], true)) {
+            $settings = array_filter([
+                ...$settings,
+                'welcome_signature' => trim($validated['welcomeSignature']),
+                'welcome_pastor_name' => trim($validated['welcomePastorName']),
+                'welcome_pastor_role' => trim($validated['welcomePastorRole']),
+            ], fn (mixed $value): bool => filled($value));
+        }
+
+        if ($usesSectionImage && filled($validated['backgroundAlt'])) {
+            $imageAltKey = $validated['sectionType'] === PageSectionType::Hero->value
+                ? 'background_alt'
+                : 'pastor_image_alt';
+            $settings[$imageAltKey] = trim($validated['backgroundAlt']);
+        }
+
+        $section = $this->sectionId
+            ? $this->page->sections()->findOrFail($this->sectionId)
+            : new PageSection([
+                'page_id' => $this->page->id,
+                'sort_order' => (int) $this->page->sections()->max('sort_order') + 1,
+                'created_by' => auth()->id(),
+            ]);
+        $event = $section->exists ? 'updated' : 'added';
+
+        $section->fill([
+            'section_type' => $validated['sectionType'],
+            'name' => $validated['name'],
+            'heading' => $validated['heading'],
+            'subheading' => $validated['subheading'],
+            'content' => $sanitizer->sanitize($validated['content']),
+            'settings' => $settings,
+            'is_visible' => $validated['isVisible'],
+            'background_image_id' => $backgroundMedia?->id,
+            'updated_by' => auth()->id(),
+        ])->save();
+
+        $logger->log(
+            'pages',
+            'page-section.'.$event,
+            str($event)->headline().' section "'.$section->name.'".',
+            $this->page,
+            auth()->user(),
+            properties: ['section_id' => $section->id],
+        );
+
+        $this->resetForm();
+        $this->page->load('sections.backgroundImage');
+        Flux::toast(variant: 'success', text: __('Section settings saved.'));
+    }
+
+    public function toggle(int $id, ActivityLogger $logger): void
+    {
+        Gate::authorize('manageSections', $this->page);
+        $section = $this->page->sections()->findOrFail($id);
+        $section->update(['is_visible' => ! $section->is_visible, 'updated_by' => auth()->id()]);
+        $logger->log('pages', 'page-section.toggled', 'Changed section visibility.', $this->page, auth()->user(), properties: ['section_id' => $section->id, 'is_visible' => $section->is_visible]);
+        $this->page->load('sections.backgroundImage');
+    }
+
+    public function move(int $id, string $direction, ActivityLogger $logger): void
+    {
+        Gate::authorize('manageSections', $this->page);
+        abort_unless(in_array($direction, ['up', 'down'], true), 422);
+
+        $moved = DB::transaction(function () use ($id, $direction): bool {
+            $sections = $this->page->sections()
+                ->reorder()
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+            $sectionIndex = $sections->search(fn (PageSection $section): bool => $section->id === $id);
+
+            abort_if($sectionIndex === false, 404);
+
+            $otherIndex = $direction === 'up' ? $sectionIndex - 1 : $sectionIndex + 1;
+            $other = $sections->get($otherIndex);
+
+            if (! $other instanceof PageSection) {
+                return false;
+            }
+
+            if ($sections->pluck('sort_order')->duplicates()->isNotEmpty()) {
+                $sections->each(function (PageSection $section, int $index): void {
+                    $section->sort_order = ($index + 1) * 10;
+                    $section->saveQuietly();
+                });
+            }
+
+            $section = $sections->get($sectionIndex);
+            $sectionOrder = $section->sort_order;
+            $otherOrder = $other->sort_order;
+            $temporaryOrder = (int) $sections->max('sort_order') + 1;
+
+            $section->sort_order = $temporaryOrder;
+            $section->saveQuietly();
+            $other->sort_order = $sectionOrder;
+            $other->saveQuietly();
+            $section->sort_order = $otherOrder;
+            $section->saveQuietly();
+
+            return true;
+        }, attempts: 3);
+
+        if (! $moved) {
+            return;
+        }
+
+        $logger->log('pages', 'page-section.reordered', 'Reordered page sections.', $this->page, auth()->user());
+        $this->page->load('sections.backgroundImage');
+    }
+
+    public function duplicate(int $id): void
+    {
+        Gate::authorize('manageSections', $this->page);
+        abort_if($this->page->is_homepage, 404);
+
+        $section = $this->page->sections()->findOrFail($id);
+        $copy = $section->replicate();
+        $copy->name = $section->name.' (Copy)';
+        $copy->sort_order = (int) $this->page->sections()->max('sort_order') + 1;
+        $copy->created_by = auth()->id();
+        $copy->updated_by = auth()->id();
+        $copy->save();
+        $this->page->load('sections.backgroundImage');
+    }
+
+    public function delete(int $id): void
+    {
+        Gate::authorize('manageSections', $this->page);
+        $this->page->sections()->findOrFail($id)->delete();
+        $this->page->load('sections.backgroundImage');
+    }
+
+    public function resetForm(): void
+    {
+        $this->reset(
+            'sectionId',
+            'name',
+            'heading',
+            'subheading',
+            'content',
+            'backgroundMediaIds',
+            'backgroundAlt',
+            'welcomeSignature',
+            'welcomePastorName',
+            'welcomePastorRole',
+        );
+        $this->sectionType = 'rich-text';
+        $this->settings = '{}';
+        $this->isVisible = true;
+        unset($this->selectedBackgroundMedia);
+    }
+
+    private function validatedBackgroundMedia(): ?Media
+    {
+        if ($this->backgroundMediaIds === []) {
+            return null;
+        }
+
+        $media = Media::query()->find($this->backgroundMediaIds[0]);
+
+        if (! $media) {
+            throw ValidationException::withMessages([
+                'backgroundMediaIds' => __('The selected background image no longer exists.'),
+            ]);
+        }
+
+        Gate::authorize('view', $media);
+
+        if ($media->media_type !== MediaType::Image
+            || $media->visibility !== MediaVisibility::Public
+            || $media->status !== MediaStatus::Active
+            || ! $media->existsOnDisk()) {
+            throw ValidationException::withMessages([
+                'backgroundMediaIds' => __('The background must be an available, active, public image from the Media Library.'),
+            ]);
+        }
+
+        return $media;
+    }
+
+    /** @return array<string, mixed> */
+    private function validatedSettings(string $type, string $json): array
+    {
+        $settings = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        $rules = match ($type) {
+            'hero' => [
+                'primary_label' => ['nullable', 'string', 'max:100'],
+                'primary_url' => ['nullable', 'string', 'max:2048'],
+                'secondary_label' => ['nullable', 'string', 'max:100'],
+                'secondary_url' => ['nullable', 'string', 'max:2048'],
+                'eyebrow' => ['nullable', 'string', 'max:150'],
+                'overlay' => ['nullable', 'integer', 'between:0,100'],
+                'alignment' => ['nullable', Rule::in(['left', 'center', 'right'])],
+            ],
+            'featured-sermons', 'latest-posts', 'ministries-grid', 'leadership-grid', 'books-grid' => [
+                'limit' => ['nullable', 'integer', 'between:1,24'],
+                'sort' => ['nullable', Rule::in(['latest', 'oldest', 'featured', 'manual'])],
+                'category_id' => ['nullable', 'integer'],
+                'speaker_id' => ['nullable', 'integer'],
+                'show_view_all' => ['nullable', 'boolean'],
+            ],
+            'upcoming-events' => [
+                'event_type_id' => ['nullable', 'integer', Rule::exists(\App\Models\EventType::class, 'id')],
+                'limit' => ['nullable', 'integer', 'between:1,24'],
+                'display_style' => ['nullable', Rule::in(['cards', 'weekly-events'])],
+                'show_read_more' => ['nullable', 'boolean'],
+                'show_icon' => ['nullable', 'boolean'],
+                'show_time' => ['nullable', 'boolean'],
+                'show_day' => ['nullable', 'boolean'],
+                'view_all_label' => ['nullable', 'string', 'max:100'],
+            ],
+            'welcome', 'welcome-upcoming-event' => [
+                'signature_text' => ['nullable', 'string', 'max:255'],
+                'pastor_name' => ['nullable', 'string', 'max:255'],
+                'pastor_title' => ['nullable', 'string', 'max:255'],
+            ],
+            'call-to-action', 'donation-callout', 'prayer-request-callout' => [
+                'button_label' => ['nullable', 'string', 'max:100'],
+                'url' => ['nullable', 'string', 'max:2048'],
+            ],
+            default => [],
+        };
+        $unknown = array_diff(array_keys($settings), array_keys($rules));
+
+        if ($unknown !== []) {
+            throw ValidationException::withMessages([
+                'settings' => __('Unsupported setting: :setting', ['setting' => reset($unknown)]),
+            ]);
+        }
+
+        return Validator::make($settings, $rules)->validate();
+    }
+};
+?>
+
+@php
+    $isWelcomeSectionType = in_array($sectionType, [PageSectionType::Welcome->value, PageSectionType::WelcomeUpcomingEvent->value], true);
+@endphp
+
+<main id="admin-main" class="p-4 sm:p-6 lg:p-8">
+    <div class="mx-auto max-w-7xl space-y-6">
+        <x-admin.page-header :title="__('Sections: :page', ['page' => $page->title])" :description="$page->is_homepage ? __('Configure, show, hide, and reorder the predefined homepage regions.') : __('Add, configure, hide, duplicate, and reorder approved section types.')">
+            <x-slot:actions>
+                <flux:button :href="route('pages.edit', $page)" wire:navigate>{{ __('Back to page') }}</flux:button>
+            </x-slot:actions>
+        </x-admin.page-header>
+
+        <div class="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)]">
+            <div class="space-y-3">
+                @forelse($page->sections as $section)
+                    <flux:card wire:key="section-{{ $section->id }}" class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <flux:heading>{{ $section->name }}</flux:heading>
+                                <flux:badge size="sm">{{ $section->section_type->label() }}</flux:badge>
+                                @unless($section->is_visible)<flux:badge size="sm" color="zinc">{{ __('Hidden') }}</flux:badge>@endunless
+                            </div>
+                            <p class="mt-1 truncate text-sm text-slate-500">{{ $section->heading }}</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            @if($loop->first)
+                                <flux:button size="sm" icon="arrow-up" disabled class="disabled:cursor-not-allowed disabled:opacity-50" :tooltip="__('Move section up')" :aria-label="__('Move :name up', ['name' => $section->name])" />
+                            @else
+                                <flux:button size="sm" icon="arrow-up" wire:click="move({{ $section->id }}, 'up')" :tooltip="__('Move section up')" :aria-label="__('Move :name up', ['name' => $section->name])" />
+                            @endif
+                            @if($loop->last)
+                                <flux:button size="sm" icon="arrow-down" disabled class="disabled:cursor-not-allowed disabled:opacity-50" :tooltip="__('Move section down')" :aria-label="__('Move :name down', ['name' => $section->name])" />
+                            @else
+                                <flux:button size="sm" icon="arrow-down" wire:click="move({{ $section->id }}, 'down')" :tooltip="__('Move section down')" :aria-label="__('Move :name down', ['name' => $section->name])" />
+                            @endif
+                            <flux:button size="sm" :icon="$section->is_visible ? 'eye-slash' : 'eye'" wire:click="toggle({{ $section->id }})" :tooltip="$section->is_visible ? __('Hide section') : __('Show section')" :aria-label="$section->is_visible ? __('Hide section') : __('Show section')" />
+                            @unless($page->is_homepage)
+                                <flux:button size="sm" wire:click="duplicate({{ $section->id }})" icon="document-duplicate" :tooltip="__('Duplicate section')" :aria-label="__('Duplicate section')" />
+                            @endunless
+                            <flux:button size="sm" wire:click="edit({{ $section->id }})" icon="pencil" :tooltip="__('Edit section')" :aria-label="__('Edit :name', ['name' => $section->name])" />
+                            <flux:button size="sm" variant="danger" wire:click="delete({{ $section->id }})" wire:confirm="{{ __('Delete this section?') }}" icon="trash" :tooltip="__('Delete section')" :aria-label="__('Delete :name', ['name' => $section->name])" />
+                        </div>
+                    </flux:card>
+                @empty
+                    <x-admin.empty-state icon="rectangle-stack" :title="__('No sections yet')" :description="__('Add the first reusable section using the form.')" />
+                @endforelse
+            </div>
+
+            <form wire:submit="save">
+                <flux:card class="space-y-5">
+                    <flux:heading size="lg">{{ $sectionId ? __('Edit section') : __('Add section') }}</flux:heading>
+                    <flux:select wire:model.live="sectionType" :label="__('Section type')">
+                        @foreach(PageSectionType::cases() as $type)
+                            @continue($page->is_homepage && $type === PageSectionType::WelcomeUpcomingEvent)
+                            @continue($page->is_homepage && $type === PageSectionType::Welcome && $sectionId === null && $page->sections->contains(fn (PageSection $section): bool => $section->section_type === PageSectionType::Welcome))
+                            <flux:select.option :value="$type->value">{{ $type->label() }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:input wire:model="name" :label="__('Internal name')" required />
+                    <flux:input wire:model="heading" :label="$isWelcomeSectionType ? __('Welcome Header') : __('Heading')" />
+                    @unless($isWelcomeSectionType)
+                        <flux:input wire:model="subheading" :label="__('Subheading')" />
+                    @endunless
+                    <flux:textarea wire:model="content" :label="$isWelcomeSectionType ? __('Welcome Message') : __('Content')" rows="6" />
+
+                    @if($isWelcomeSectionType)
+                        <flux:input wire:model="welcomeSignature" :label="__('Signature')" maxlength="255" />
+                        <flux:input wire:model="welcomePastorName" label="Pastor's Name" maxlength="255" />
+                        <flux:input wire:model="welcomePastorRole" label="Pastor's Role" maxlength="255" />
+                    @endif
+
+                    @if(in_array($sectionType, [PageSectionType::Hero->value, PageSectionType::Welcome->value, PageSectionType::WelcomeUpcomingEvent->value], true))
+                        <div class="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-zinc-700">
+                            <div>
+                                <flux:heading>{{ $sectionType === PageSectionType::Hero->value ? __('Hero background image') : __('Pastor image') }}</flux:heading>
+                                <flux:text class="mt-1">{{ __('Choose one active, public image from the Media Library.') }}</flux:text>
+                            </div>
+
+                            <livewire:media-picker
+                                wire:model="backgroundMediaIds"
+                                :allowed-types="[MediaType::Image->value]"
+                                :multiple="false"
+                                :maximum="1"
+                                collection="homepage-section"
+                                :allow-upload="false"
+                            />
+                            <flux:error name="backgroundMediaIds" />
+                            <flux:error name="backgroundMediaIds.*" />
+
+                            <flux:input wire:model="backgroundAlt" :label="$sectionType === PageSectionType::Hero->value ? __('Background image alt text') : __('Pastor image alt text')" :description="__('Leave blank to use the Media Library alt text or title.')" maxlength="255" />
+
+                            <div class="overflow-hidden rounded-xl bg-[rgb(36,11,54)]">
+                                <div @class(['relative', 'aspect-[16/7]' => $sectionType === PageSectionType::Hero->value, 'mx-auto aspect-[4/5] max-w-56' => $isWelcomeSectionType])>
+                                    @if($this->selectedBackgroundMedia?->publicImageUrl())
+                                        <img src="{{ $this->selectedBackgroundMedia->publicImageUrl() }}" alt="" class="absolute inset-0 h-full w-full object-cover">
+                                    @else
+                                        <div class="absolute inset-0 grid place-items-center px-4 text-center text-sm font-medium text-white/80">
+                                            {{ __('No available image selected. The gradient will remain visible.') }}
+                                        </div>
+                                    @endif
+                                    @if($sectionType === PageSectionType::Hero->value)
+                                        <div class="absolute inset-0 bg-[linear-gradient(to_right,rgb(195,20,50),rgb(36,11,54))] opacity-95" aria-hidden="true"></div>
+                                    @endif
+                                    <div class="absolute inset-x-0 bottom-0 z-10 p-4 text-white">
+                                        <p class="truncate font-semibold">{{ $this->selectedBackgroundMedia?->name ?? __('Gradient-only hero') }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
+                    @unless($isWelcomeSectionType)
+                        <flux:textarea wire:model="settings" :label="__('Section settings (JSON)')" rows="9" class="font-mono text-sm" description="{{ __('Only validated JSON for the selected approved section type is stored.') }}" />
+                    @endunless
+                    <flux:switch wire:model="isVisible" :label="__('Visible')" />
+                    <div class="flex gap-2">
+                        <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="save">
+                            <span wire:loading.remove wire:target="save">{{ __('Save section') }}</span>
+                            <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
+                        </flux:button>
+                        @if($sectionId)
+                            <flux:button type="button" wire:click="resetForm">{{ __('Cancel') }}</flux:button>
+                        @endif
+                    </div>
+                </flux:card>
+            </form>
+        </div>
+    </div>
+</main>

@@ -24,13 +24,11 @@ class SaveSermon
 
     /**
      * @param  array<string, mixed>  $data
-     * @param  list<int>  $topicIds
      * @param  list<int>  $ministryIds
      */
     public function handle(
         User $actor,
         array $data,
-        array $topicIds,
         ?UploadedFile $thumbnail = null,
         bool $removeThumbnail = false,
         ?Sermon $sermon = null,
@@ -41,7 +39,7 @@ class SaveSermon
         $sermon ??= new Sermon;
         $data = $this->normalizeExternalMedia($data);
         $this->authorizeWorkflow($actor, $data, $sermon);
-        $oldValues = $creating ? [] : $this->auditValues($sermon->loadMissing('topics:id'));
+        $oldValues = $creating ? [] : $this->auditValues($sermon);
         $oldThumbnailPath = $sermon->thumbnail_path;
         $newThumbnailPath = $this->storeThumbnail($thumbnail);
 
@@ -55,12 +53,11 @@ class SaveSermon
         $data['updated_by'] = $actor->id;
 
         try {
-            $savedSermon = DB::transaction(function () use ($sermon, $data, $topicIds, $ministryIds): Sermon {
+            $savedSermon = DB::transaction(function () use ($sermon, $data, $ministryIds): Sermon {
                 $sermon->fill($data)->save();
-                $sermon->topics()->sync($topicIds);
                 $sermon->ministries()->sync($ministryIds);
 
-                return $sermon->refresh()->load(['speaker:id,title,first_name,middle_name,last_name', 'series:id,title', 'topics:id,name', 'ministries:id,name']);
+                return $sermon->refresh()->load(['speaker:id,title,first_name,middle_name,last_name', 'ministries:id,name']);
             });
         } catch (Throwable $exception) {
             if ($newThumbnailPath !== null) {
@@ -158,8 +155,6 @@ class SaveSermon
             'media_url' => $this->externalMedia->safeAuditUrl($sermon->external_media_url),
             'thumbnail' => $sermon->thumbnail_path === null ? 'Not set' : 'Set',
             'speaker' => $sermon->speaker->full_name,
-            'series' => $sermon->series?->title,
-            'topics' => $sermon->topics->pluck('name')->sort()->values()->all(),
             'service_name' => $sermon->service_name,
             'location' => $sermon->location,
             'status' => $sermon->status->value,
@@ -219,8 +214,6 @@ class SaveSermon
             'media_url' => 'media_url_changed',
             'thumbnail' => 'thumbnail_changed',
             'speaker' => 'speaker_changed',
-            'series' => 'series_changed',
-            'topics' => 'topics_changed',
         ] as $field => $event) {
             if (in_array($field, $changedKeys, true)) {
                 $this->activityLogger->log(

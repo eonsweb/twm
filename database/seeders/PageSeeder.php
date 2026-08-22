@@ -4,11 +4,12 @@ namespace Database\Seeders;
 
 use App\Models\Page;
 use App\Models\User;
+use App\Pages\HomepageSectionSynchronizer;
 use Illuminate\Database\Seeder;
 
 class PageSeeder extends Seeder
 {
-    public function run(): void
+    public function run(HomepageSectionSynchronizer $homepageSections): void
     {
         $actorId = User::query()->value('id');
         $definitions = [
@@ -20,12 +21,35 @@ class PageSeeder extends Seeder
             ['title' => 'Terms and Conditions', 'slug' => 'terms-and-conditions', 'page_type' => 'legal', 'template' => 'legal', 'excerpt' => 'Terms governing use of this website.', 'show_in_navigation' => false],
         ];
         foreach ($definitions as $definition) {
-            $page = Page::query()->updateOrCreate(['slug' => $definition['slug']], [...$definition, 'content' => '<p>Content for this page can be managed from the Pages administration module.</p>', 'status' => 'published', 'visibility' => 'public', 'published_at' => now()->subDay(), 'created_by' => $actorId, 'updated_by' => $actorId, 'robots_index' => true, 'robots_follow' => true]);
+            $page = Page::query()->updateOrCreate(['slug' => $definition['slug']], [...$definition, 'status' => 'published', 'visibility' => 'public', 'published_at' => now()->subDay(), 'created_by' => $actorId, 'updated_by' => $actorId, 'robots_index' => true, 'robots_follow' => true]);
             if ($page->is_homepage) {
-                $page->sections()->updateOrCreate(['name' => 'Homepage hero'], ['section_type' => 'hero', 'heading' => 'Welcome to Triumphant World Ministry', 'subheading' => 'A place to believe, belong, and become', 'content' => '<p>Join us as we worship Jesus, grow in faith, and serve our world.</p>', 'settings' => ['primary_label' => 'Plan Your Visit', 'primary_url' => '/contact', 'secondary_label' => 'Watch Sermons', 'secondary_url' => '/sermons'], 'sort_order' => 10, 'is_visible' => true, 'created_by' => $actorId, 'updated_by' => $actorId]);
-                $page->sections()->updateOrCreate(['name' => 'Service times'], ['section_type' => 'service-times', 'heading' => 'Join Us This Week', 'settings' => [], 'sort_order' => 20, 'is_visible' => true, 'created_by' => $actorId, 'updated_by' => $actorId]);
-                $page->sections()->updateOrCreate(['name' => 'Latest sermon'], ['section_type' => 'featured-sermons', 'heading' => 'Latest Sermons', 'settings' => ['limit' => 3], 'sort_order' => 30, 'is_visible' => true, 'created_by' => $actorId, 'updated_by' => $actorId]);
-                $page->sections()->updateOrCreate(['name' => 'Upcoming events'], ['section_type' => 'upcoming-events', 'heading' => 'Upcoming Events', 'settings' => ['limit' => 3], 'sort_order' => 40, 'is_visible' => true, 'created_by' => $actorId, 'updated_by' => $actorId]);
+                $page->sections()->firstOrCreate(['section_type' => 'hero'], ['name' => 'Homepage hero', 'heading' => 'Welcome to Triumphant World Ministry', 'subheading' => 'A place to believe, belong, and become', 'content' => '<p>Join us as we worship Jesus, grow in faith, and serve our world.</p>', 'settings' => ['primary_label' => 'Plan Your Visit', 'primary_url' => '/contact', 'secondary_label' => 'Watch Sermons', 'secondary_url' => '/sermons'], 'sort_order' => 10, 'is_visible' => true, 'created_by' => $actorId, 'updated_by' => $actorId]);
+                $page->sections()->firstOrCreate(['section_type' => 'service-times'], ['name' => 'Service times', 'heading' => 'Join Us This Week', 'settings' => [], 'sort_order' => 20, 'is_visible' => true, 'created_by' => $actorId, 'updated_by' => $actorId]);
+                $homepageSections->sync($page);
+                $page->sections()->firstOrCreate(
+                    ['section_type' => 'featured-sermons'],
+                    [
+                        'name' => 'Latest sermon',
+                        'heading' => 'Latest Sermons',
+                        'settings' => ['limit' => 3],
+                        'sort_order' => 40,
+                        'is_visible' => true,
+                        'created_by' => $actorId,
+                        'updated_by' => $actorId,
+                    ],
+                );
+                $page->sections()->firstOrCreate(
+                    ['section_type' => 'upcoming-events'],
+                    [
+                        'name' => 'Upcoming events',
+                        'heading' => 'Upcoming Events',
+                        'settings' => ['limit' => 3],
+                        'sort_order' => 50,
+                        'is_visible' => true,
+                        'created_by' => $actorId,
+                        'updated_by' => $actorId,
+                    ],
+                );
             }
         }
     }

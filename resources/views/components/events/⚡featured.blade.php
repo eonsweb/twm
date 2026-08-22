@@ -9,7 +9,7 @@ new class extends Component
     #[Computed]
     public function event(): ?Event
     {
-        return Event::query()->published()->upcoming()->featured()->with('eventType:id,name')->orderBy('starts_at')->first();
+        return Event::query()->active()->published()->upcoming()->featured()->with(['eventType:id,name,icon,color', 'featuredImage:id,disk,path,media_type,visibility,status'])->orderBy('sort_order')->orderBy('starts_at')->first();
     }
 };
 ?>
@@ -27,7 +27,7 @@ new class extends Component
                 <a href="{{ route('public.events.show', $this->event) }}" class="mt-8 inline-flex items-center gap-2 rounded-xl bg-church-gold-500 px-5 py-3 font-bold text-church-maroon-950 hover:bg-church-gold-400" wire:navigate>{{ __('View featured event') }}<flux:icon.arrow-right class="size-4" /></a>
             </div>
             <div class="min-h-72 bg-church-maroon-900">
-                @if ($this->event->imageUrl())<img src="{{ $this->event->imageUrl() }}" alt="{{ $this->event->title }}" class="h-full w-full object-cover">@else<div class="flex h-full min-h-72 items-center justify-center text-church-gold-400"><flux:icon.calendar-days class="size-20" /></div>@endif
+                @if ($this->event->imageUrl())<img src="{{ $this->event->imageUrl() }}" alt="{{ $this->event->title }}" class="h-full w-full object-cover">@else<div class="flex h-full min-h-72 items-center justify-center text-church-gold-400"><flux:icon :name="$this->event->effectiveIcon()" class="size-20" /></div>@endif
             </div>
         </div>
     </section>

@@ -16,7 +16,7 @@ new #[Layout('layouts.public'), Title('Events')] class extends Component
     use WithPagination;
 
     #[Url] public string $search = '';
-    #[Url] public string $eventType = '';
+    #[Url(as: 'type')] public string $eventType = '';
     #[Url] public string $period = 'upcoming';
 
     public function updated(string $property): void
@@ -28,11 +28,12 @@ new #[Layout('layouts.public'), Title('Events')] class extends Component
     public function events(): LengthAwarePaginator
     {
         return Event::query()
+            ->active()
             ->published()
-            ->with('eventType:id,name')
+            ->with(['eventType:id,name,slug,icon,color', 'featuredImage:id,disk,path,media_type,visibility,status'])
             ->when($this->period === 'past', fn (Builder $query): Builder => $query->past())
             ->when($this->period !== 'past', fn (Builder $query): Builder => $query->upcoming())
-            ->when($this->eventType !== '', fn (Builder $query): Builder => $query->where('event_type_id', $this->eventType))
+            ->when($this->eventType !== '', fn (Builder $query): Builder => $query->ofType($this->eventType))
             ->when($this->search !== '', function (Builder $query): void {
                 $search = '%'.trim($this->search).'%';
                 $query->where(function (Builder $query) use ($search): void {
@@ -43,6 +44,7 @@ new #[Layout('layouts.public'), Title('Events')] class extends Component
                         ->orWhere('city', 'like', $search);
                 });
             })
+            ->orderBy('sort_order')
             ->orderBy('starts_at', $this->period === 'past' ? 'desc' : 'asc')
             ->paginate(9);
     }
@@ -55,7 +57,7 @@ new #[Layout('layouts.public'), Title('Events')] class extends Component
             ->whereHas('events', fn (Builder $query): Builder => $query->published())
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'slug']);
     }
 };
 ?>
@@ -75,7 +77,7 @@ new #[Layout('layouts.public'), Title('Events')] class extends Component
         <div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_15rem_auto]">
                 <flux:input wire:model.live.debounce.350ms="search" icon="magnifying-glass" :label="__('Search events')" :placeholder="__('Search by event or location')" />
-                <flux:select wire:model.live="eventType" :label="__('Event type')"><flux:select.option value="">{{ __('All types') }}</flux:select.option>@foreach ($this->eventTypes as $type)<flux:select.option :value="$type->id">{{ $type->name }}</flux:select.option>@endforeach</flux:select>
+                <flux:select wire:model.live="eventType" :label="__('Event type')"><flux:select.option value="">{{ __('All types') }}</flux:select.option>@foreach ($this->eventTypes as $type)<flux:select.option :value="$type->slug">{{ $type->name }}</flux:select.option>@endforeach</flux:select>
                 <flux:radio.group wire:model.live="period" :label="__('Period')" variant="segmented"><flux:radio value="upcoming" :label="__('Upcoming')" /><flux:radio value="past" :label="__('Past')" /></flux:radio.group>
             </div>
         </div>
@@ -89,15 +91,12 @@ new #[Layout('layouts.public'), Title('Events')] class extends Component
                     <p class="mt-2 text-slate-500">{{ __('Try a different search, event type, or date period.') }}</p>
                 </div>
             @else
-                @foreach ($this->events->getCollection()->groupBy(fn (Event $event): string => $event->starts_at->setTimezone($event->timezone)->format('F Y')) as $month => $events)
-                    <section class="mb-10" wire:key="event-month-{{ str($month)->slug() }}">
-                        <h2 class="mb-5 border-b border-stone-200 pb-3 text-2xl font-black dark:border-zinc-800">{{ $month }}</h2>
-                        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                            @foreach ($events as $event)<x-events.card :event="$event" wire:key="public-event-{{ $event->id }}" />@endforeach
-                        </div>
-                    </section>
-                @endforeach
+                <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    @foreach ($this->events as $event)<x-events.card :event="$event" wire:key="public-event-{{ $event->id }}" />@endforeach
+                </div>
+                <div class="mt-8">
                 <flux:pagination :paginator="$this->events" />
+                </div>
             @endif
         </div>
     </section>

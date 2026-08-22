@@ -8,6 +8,8 @@ use InvalidArgumentException;
 
 class ExternalMedia
 {
+    private const YOUTUBE_EMBED_HOST = 'www.youtube-nocookie.com';
+
     /**
      * @return array{
      *     original_url: string,
@@ -32,7 +34,7 @@ class ExternalMedia
         $host = Str::startsWith($host, 'www.') ? Str::after($host, 'www.') : $host;
 
         return match (true) {
-            $this->hostMatches($host, ['youtube.com', 'youtu.be', 'youtube-nocookie.com']) => $this->youtube($url, $host),
+            $this->hostMatches($host, ['youtube.com', 'youtu.be', 'youtube-nocookie.com']) => $this->youtube($url),
             $this->hostMatches($host, ['vimeo.com']) => $this->vimeo($url),
             $this->hostMatches($host, ['facebook.com', 'fb.watch']) => $this->facebook($url),
             $this->hostMatches($host, ['soundcloud.com']) => $this->soundCloud($url),
@@ -75,25 +77,54 @@ class ExternalMedia
         return $scheme !== null && $host !== null ? "{$scheme}://{$host}{$path}" : null;
     }
 
-    /**
-     * @return array{original_url: string, platform: SermonMediaPlatform, embed_url: string, thumbnail_url: string}
-     */
-    private function youtube(string $url, string $host): array
+    public function youtubeVideoId(string $url): ?string
     {
+        if (filter_var($url, FILTER_VALIDATE_URL) === false || parse_url($url, PHP_URL_SCHEME) !== 'https') {
+            return null;
+        }
+
+        $host = Str::lower((string) parse_url($url, PHP_URL_HOST));
+        $host = Str::startsWith($host, 'www.') ? Str::after($host, 'www.') : $host;
+
+        if (! $this->hostMatches($host, ['youtube.com', 'youtu.be', 'youtube-nocookie.com'])) {
+            return null;
+        }
+
         $path = trim((string) parse_url($url, PHP_URL_PATH), '/');
         parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
         $videoId = $host === 'youtu.be'
             ? Str::before($path, '/')
             : ($query['v'] ?? $this->youtubePathIdentifier($path));
 
-        if (! is_string($videoId) || preg_match('/^[A-Za-z0-9_-]{6,20}$/', $videoId) !== 1) {
+        return is_string($videoId) && preg_match('/^[A-Za-z0-9_-]{11}$/', $videoId) === 1
+            ? $videoId
+            : null;
+    }
+
+    public function youtubeEmbedUrl(string $url): ?string
+    {
+        $videoId = $this->youtubeVideoId($url);
+
+        return $videoId === null
+            ? null
+            : 'https://'.self::YOUTUBE_EMBED_HOST.'/embed/'.$videoId;
+    }
+
+    /**
+     * @return array{original_url: string, platform: SermonMediaPlatform, embed_url: string, thumbnail_url: string}
+     */
+    private function youtube(string $url): array
+    {
+        $videoId = $this->youtubeVideoId($url);
+
+        if ($videoId === null) {
             throw new InvalidArgumentException('The YouTube URL does not contain a valid video identifier.');
         }
 
         return [
             'original_url' => $url,
             'platform' => SermonMediaPlatform::YouTube,
-            'embed_url' => "https://www.youtube-nocookie.com/embed/{$videoId}",
+            'embed_url' => 'https://'.self::YOUTUBE_EMBED_HOST.'/embed/'.$videoId,
             'thumbnail_url' => "https://i.ytimg.com/vi/{$videoId}/hqdefault.jpg",
         ];
     }

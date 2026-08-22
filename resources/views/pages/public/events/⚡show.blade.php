@@ -14,7 +14,7 @@ new #[Layout('layouts.public')] class extends Component
     public function mount(Event $event): void
     {
         abort_unless($event->isPubliclyAvailable(), 404);
-        $this->event = $event->load('eventType:id,name');
+        $this->event = $event->load(['eventType:id,name,icon,color', 'featuredImage:id,disk,path,media_type,visibility,status']);
     }
 
     public function title(): string
@@ -27,10 +27,11 @@ new #[Layout('layouts.public')] class extends Component
     {
         return Event::query()
             ->published()
+            ->active()
             ->upcoming()
             ->whereKeyNot($this->event->id)
             ->when($this->event->event_type_id !== null, fn ($query) => $query->where('event_type_id', $this->event->event_type_id))
-            ->with('eventType:id,name')
+            ->with(['eventType:id,name,icon,color', 'featuredImage:id,disk,path,media_type,visibility,status'])
             ->orderBy('starts_at')
             ->limit(3)
             ->get();
@@ -49,7 +50,7 @@ new #[Layout('layouts.public')] class extends Component
                     @if ($event->short_description)<p class="mt-5 text-lg leading-8 text-white/75">{{ $event->short_description }}</p>@endif
                 </div>
                 <div class="overflow-hidden rounded-2xl bg-church-maroon-900 shadow-2xl">
-                    @if ($event->imageUrl())<img src="{{ $event->imageUrl() }}" alt="{{ $event->title }}" class="aspect-[16/9] w-full object-cover">@else<div class="flex aspect-[16/9] items-center justify-center text-church-gold-400"><flux:icon.calendar-days class="size-20" /></div>@endif
+                @if ($event->imageUrl())<img src="{{ $event->imageUrl() }}" alt="{{ $event->title }}" class="aspect-[16/9] w-full object-cover">@else<div class="flex aspect-[16/9] items-center justify-center text-church-gold-400"><flux:icon :name="$event->effectiveIcon()" class="size-20" /></div>@endif
                 </div>
             </div>
         </div>
@@ -75,14 +76,15 @@ new #[Layout('layouts.public')] class extends Component
             <div class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
                 <h2 class="text-xl font-black">{{ __('Event details') }}</h2>
                 <dl class="mt-5 space-y-5 text-sm">
-                    <div class="flex gap-3"><flux:icon.calendar-days class="mt-0.5 size-5 shrink-0 text-church-maroon-700 dark:text-church-gold-400" /><div><dt class="font-bold">{{ __('Date and time') }}</dt><dd class="mt-1 text-slate-600 dark:text-zinc-300">{{ $event->formattedDateRange() }}</dd></div></div>
+                    <div class="flex gap-3"><flux:icon.calendar-days class="mt-0.5 size-5 shrink-0 text-church-maroon-700 dark:text-church-gold-400" /><div><dt class="font-bold">{{ __('Schedule') }}</dt><dd class="mt-1 text-slate-600 dark:text-zinc-300">{{ $event->scheduleLabel() }}</dd>@if ($next = $event->nextOccurrence())<dd class="mt-2 font-semibold text-church-maroon-800 dark:text-church-gold-400">{{ __('Next: :date', ['date' => $next->setTimezone($event->timezone)->format('l, j F Y')]) }}</dd>@endif</div></div>
                     <div class="flex gap-3"><flux:icon.map-pin class="mt-0.5 size-5 shrink-0 text-church-maroon-700 dark:text-church-gold-400" /><div><dt class="font-bold">{{ __('Venue') }}</dt><dd class="mt-1 text-slate-600 dark:text-zinc-300">{{ $event->locationLabel() }}</dd></div></div>
-                    @if ($event->is_recurring)<div class="flex gap-3"><flux:icon.arrow-path class="mt-0.5 size-5 shrink-0 text-church-maroon-700 dark:text-church-gold-400" /><div><dt class="font-bold">{{ __('Recurring') }}</dt><dd class="mt-1 text-slate-600 dark:text-zinc-300">{{ str($event->recurrence_rule)->headline() }}</dd></div></div>@endif
+                    @if ($event->isRecurring())<div class="flex gap-3"><flux:icon.arrow-path class="mt-0.5 size-5 shrink-0 text-church-maroon-700 dark:text-church-gold-400" /><div><dt class="font-bold">{{ __('Recurring programme') }}</dt><dd class="mt-1 text-slate-600 dark:text-zinc-300">{{ $event->schedule_type->label() }}</dd></div></div>@endif
                 </dl>
                 @if ($event->registration_required && $event->registration_url && $event->status !== EventStatus::Cancelled)
                     <a href="{{ $event->registration_url }}" target="_blank" rel="noopener noreferrer nofollow" class="mt-6 flex w-full items-center justify-center rounded-xl bg-church-maroon-900 px-5 py-3 font-bold text-white hover:bg-church-maroon-800">{{ __('Register for this event') }}</a>
                     @if ($event->registration_deadline)<p class="mt-2 text-center text-xs text-slate-500">{{ __('Registration closes :date', ['date' => $event->registration_deadline->setTimezone($event->timezone)->format('M j, Y g:i A')]) }}</p>@endif
                 @endif
+                @if ($event->livestream_url && $event->status !== EventStatus::Cancelled)<a href="{{ $event->livestream_url }}" target="_blank" rel="noopener noreferrer nofollow" class="mt-3 flex w-full items-center justify-center rounded-xl border border-church-maroon-900 px-5 py-3 font-bold text-church-maroon-900 dark:border-church-gold-400 dark:text-church-gold-400">{{ __('Watch livestream') }}</a>@endif
             </div>
             @if ($event->contact_name || $event->contact_phone || $event->contact_email)
                 <div class="rounded-2xl border border-stone-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900"><h2 class="font-black">{{ __('Contact') }}</h2><div class="mt-3 space-y-1 text-sm text-slate-600 dark:text-zinc-300">@if ($event->contact_name)<p>{{ $event->contact_name }}</p>@endif @if ($event->contact_phone)<p><a href="tel:{{ $event->contact_phone }}">{{ $event->contact_phone }}</a></p>@endif @if ($event->contact_email)<p><a href="mailto:{{ $event->contact_email }}">{{ $event->contact_email }}</a></p>@endif</div></div>

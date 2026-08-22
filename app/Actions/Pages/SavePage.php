@@ -6,6 +6,7 @@ use App\Activity\ActivityLogger;
 use App\Blog\HtmlSanitizer;
 use App\Models\Page;
 use App\Models\User;
+use App\Pages\HomepageSectionSynchronizer;
 use App\PageStatus;
 use App\PageVisibility;
 use Illuminate\Support\Arr;
@@ -16,7 +17,11 @@ use Illuminate\Validation\ValidationException;
 
 class SavePage
 {
-    public function __construct(private readonly ActivityLogger $activityLogger, private readonly HtmlSanitizer $htmlSanitizer) {}
+    public function __construct(
+        private readonly ActivityLogger $activityLogger,
+        private readonly HtmlSanitizer $htmlSanitizer,
+        private readonly HomepageSectionSynchronizer $homepageSections,
+    ) {}
 
     /** @param array<string, mixed> $data */
     public function handle(User $actor, array $data, ?Page $page = null): Page
@@ -49,6 +54,11 @@ class SavePage
 
             return $page->refresh()->load(['parent:id,title,slug', 'updater:id,name', 'featuredImage']);
         });
+
+        if ($saved->is_homepage) {
+            $this->homepageSections->sync($saved);
+        }
+
         $this->activityLogger->log('pages', $creating ? 'page.created' : 'page.updated', ($creating ? 'Created' : 'Updated').' page "'.$saved->title.'".', $saved, $actor, oldValues: $old, newValues: Arr::only($saved->getAttributes(), array_keys($data)));
         Cache::forget('pages.public-navigation');
 

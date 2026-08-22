@@ -7,7 +7,13 @@
 
         <x-passkey-verify />
 
-        <form method="POST" action="{{ route('login.store') }}" class="flex flex-col gap-6">
+        <form
+            method="POST"
+            action="{{ route('login.store') }}"
+            class="flex flex-col gap-6"
+            x-data="{ submitting: false }"
+            x-on:submit="if (submitting) { $event.preventDefault() } else { submitting = true }"
+        >
             @csrf
 
             <!-- Login -->
@@ -45,8 +51,16 @@
             <flux:checkbox name="remember" :label="__('Remember me')" :checked="old('remember')" />
 
             <div class="flex items-center justify-end">
-                <flux:button variant="primary" type="submit" class="w-full" data-test="login-button">
-                    {{ __('Log in') }}
+                <flux:button
+                    variant="primary"
+                    type="submit"
+                    class="w-full"
+                    data-test="login-button"
+                    x-bind:disabled="submitting"
+                    x-bind:aria-busy="submitting.toString()"
+                >
+                    <span x-show="! submitting">{{ __('Log in') }}</span>
+                    <span x-cloak x-show="submitting" aria-live="polite">{{ __('Loading...') }}</span>
                 </flux:button>
             </div>
         </form>

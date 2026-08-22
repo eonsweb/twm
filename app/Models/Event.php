@@ -3,7 +3,10 @@
 namespace App\Models;
 
 use App\EventLocationType;
+use App\EventScheduleType;
 use App\EventStatus;
+use App\Services\EventScheduleService;
+use App\Support\EventIcons;
 use Database\Factories\EventFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,7 +28,9 @@ use Illuminate\Support\Str;
  * @property string|null $short_description
  * @property string|null $description
  * @property string|null $featured_image
- * @property EventLocationType $location_type
+ * @property int|null $featured_image_id
+ * @property string|null $icon
+ * @property EventLocationType|null $location_type
  * @property string|null $venue_name
  * @property string|null $address
  * @property string|null $city
@@ -40,13 +45,22 @@ use Illuminate\Support\Str;
  * @property Carbon $starts_at
  * @property Carbon|null $ends_at
  * @property string $timezone
+ * @property EventScheduleType $schedule_type
  * @property bool $is_all_day
  * @property bool $is_recurring
  * @property string|null $recurrence_rule
+ * @property int $recurrence_interval
+ * @property list<string>|null $recurrence_days
+ * @property string|null $recurrence_week_of_month
+ * @property int|null $recurrence_month
+ * @property int|null $recurrence_day_of_month
+ * @property Carbon|null $recurrence_end_date
  * @property bool $registration_required
  * @property Carbon|null $registration_deadline
  * @property int|null $maximum_attendees
  * @property bool $is_featured
+ * @property bool $is_active
+ * @property int $sort_order
  * @property bool $is_livestreamed
  * @property EventStatus $status
  * @property Carbon|null $published_at
@@ -54,6 +68,7 @@ use Illuminate\Support\Str;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read EventType|null $eventType
+ * @property-read Media|null $featuredImage
  * @property-read User|null $creator
  * @property-read User|null $updater
  */
@@ -67,6 +82,8 @@ use Illuminate\Support\Str;
     'short_description',
     'description',
     'featured_image',
+    'featured_image_id',
+    'icon',
     'location_type',
     'venue_name',
     'address',
@@ -82,14 +99,24 @@ use Illuminate\Support\Str;
     'starts_at',
     'ends_at',
     'timezone',
+    'schedule_type',
     'is_all_day',
     'is_recurring',
     'recurrence_rule',
+    'recurrence_interval',
+    'recurrence_days',
+    'recurrence_week_of_month',
+    'recurrence_month',
+    'recurrence_day_of_month',
+    'recurrence_end_date',
     'registration_required',
     'registration_deadline',
     'maximum_attendees',
     'is_featured',
+    'is_active',
+    'sort_order',
     'is_livestreamed',
+    'livestream_url',
     'status',
     'published_at',
 ])]
@@ -101,12 +128,16 @@ class Event extends Model
     protected $attributes = [
         'country' => 'Ghana',
         'timezone' => 'Africa/Accra',
+        'schedule_type' => 'one_time',
         'location_type' => 'physical',
         'status' => 'draft',
         'is_all_day' => false,
         'is_recurring' => false,
+        'recurrence_interval' => 1,
         'registration_required' => false,
         'is_featured' => false,
+        'is_active' => true,
+        'sort_order' => 0,
         'is_livestreamed' => false,
     ];
 
@@ -128,6 +159,21 @@ class Event extends Model
     public function eventType(): BelongsTo
     {
         return $this->belongsTo(EventType::class);
+    }
+
+    /** @return BelongsTo<Media, $this> */
+    public function featuredImage(): BelongsTo
+    {
+        return $this->belongsTo(Media::class, 'featured_image_id');
+    }
+
+    /**
+     * @param  Builder<Event>  $query
+     * @return Builder<Event>
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
     }
 
     /** @return BelongsTo<Ministry, $this> */
@@ -155,7 +201,7 @@ class Event extends Model
     public function scopePublished(Builder $query): Builder
     {
         return $query
-            ->whereIn('status', [EventStatus::Published, EventStatus::Cancelled])
+            ->whereIn('status', [EventStatus::Published, EventStatus::Cancelled, EventStatus::Completed, EventStatus::Archived])
             ->where(function (Builder $query): void {
                 $query->where(function (Builder $query): void {
                     $query->where('status', EventStatus::Published)->whereNull('published_at');
@@ -170,11 +216,30 @@ class Event extends Model
     public function scopeUpcoming(Builder $query): Builder
     {
         return $query->where(function (Builder $query): void {
-            $query->where('starts_at', '>=', now())
+            $query->where(function (Builder $query): void {
+                $query->where('schedule_type', EventScheduleType::OneTime)
+                    ->where(function (Builder $query): void {
+                        $query->where('starts_at', '>=', now())
+                            ->orWhere(function (Builder $query): void {
+                                $query->where('starts_at', '<', now())
+                                    ->whereNotNull('ends_at')
+                                    ->where('ends_at', '>=', now());
+                            });
+                    });
+            })
                 ->orWhere(function (Builder $query): void {
-                    $query->where('starts_at', '<', now())
-                        ->whereNotNull('ends_at')
-                        ->where('ends_at', '>=', now());
+                    $query->whereIn('schedule_type', [
+                        EventScheduleType::Weekly,
+                        EventScheduleType::Monthly,
+                        EventScheduleType::Yearly,
+                    ])
+                        ->where(fn (Builder $query): Builder => $query
+                            ->whereNull('recurrence_end_date')
+                            ->orWhereDate('recurrence_end_date', '>=', today()));
+                })
+                ->orWhere(function (Builder $query): void {
+                    $query->where('schedule_type', EventScheduleType::Custom)
+                        ->where('starts_at', '>=', now());
                 });
         });
     }
@@ -186,11 +251,58 @@ class Event extends Model
     public function scopePast(Builder $query): Builder
     {
         return $query->where(function (Builder $query): void {
-            $query->whereNotNull('ends_at')->where('ends_at', '<', now())
+            $query->where('schedule_type', EventScheduleType::OneTime)
+                ->where(function (Builder $query): void {
+                    $query->whereNotNull('ends_at')->where('ends_at', '<', now())
+                        ->orWhere(function (Builder $query): void {
+                            $query->whereNull('ends_at')->where('starts_at', '<', now());
+                        });
+                })
                 ->orWhere(function (Builder $query): void {
-                    $query->whereNull('ends_at')->where('starts_at', '<', now());
+                    $query->whereIn('schedule_type', [
+                        EventScheduleType::Weekly,
+                        EventScheduleType::Monthly,
+                        EventScheduleType::Yearly,
+                    ])
+                        ->whereNotNull('recurrence_end_date')
+                        ->whereDate('recurrence_end_date', '<', today());
+                })
+                ->orWhere(function (Builder $query): void {
+                    $query->where('schedule_type', EventScheduleType::Custom)
+                        ->whereRaw('COALESCE(ends_at, starts_at) < ?', [now()]);
                 });
         });
+    }
+
+    /**
+     * @param  Builder<Event>  $query
+     * @return Builder<Event>
+     */
+    public function scopeRecurring(Builder $query): Builder
+    {
+        return $query->where('schedule_type', '!=', EventScheduleType::OneTime);
+    }
+
+    /**
+     * @param  Builder<Event>  $query
+     * @return Builder<Event>
+     */
+    public function scopeOneTime(Builder $query): Builder
+    {
+        return $query->where('schedule_type', EventScheduleType::OneTime);
+    }
+
+    /**
+     * @param  Builder<Event>  $query
+     * @return Builder<Event>
+     */
+    public function scopeOfType(Builder $query, EventType|int|string $type): Builder
+    {
+        if ($type instanceof EventType || is_int($type) || ctype_digit((string) $type)) {
+            return $query->where('event_type_id', $type instanceof EventType ? $type->getKey() : (int) $type);
+        }
+
+        return $query->whereHas('eventType', fn (Builder $query): Builder => $query->where('slug', $type));
     }
 
     /**
@@ -231,9 +343,13 @@ class Event extends Model
 
     public function isPubliclyAvailable(): bool
     {
+        if (! $this->is_active) {
+            return false;
+        }
+
         return match ($this->status) {
             EventStatus::Published => $this->published_at === null || $this->published_at->isPast(),
-            EventStatus::Cancelled => $this->published_at !== null && $this->published_at->isPast(),
+            EventStatus::Cancelled, EventStatus::Completed, EventStatus::Archived => $this->published_at !== null && $this->published_at->isPast(),
             default => false,
         };
     }
@@ -244,11 +360,11 @@ class Event extends Model
             return 'cancelled';
         }
 
-        if ($this->status === EventStatus::Completed || $this->eventHasEnded()) {
+        if (in_array($this->status, [EventStatus::Completed, EventStatus::Archived], true) || $this->isPast()) {
             return 'completed';
         }
 
-        if ($this->starts_at->isFuture()) {
+        if ($this->nextOccurrence()?->isFuture()) {
             return 'upcoming';
         }
 
@@ -281,9 +397,56 @@ class Event extends Model
 
     public function imageUrl(): ?string
     {
+        if ($this->featuredImage?->publicImageUrl() !== null) {
+            return $this->featuredImage->publicImageUrl();
+        }
+
         return $this->featured_image !== null
             ? Storage::disk('public')->url($this->featured_image)
             : null;
+    }
+
+    public function isRecurring(): bool
+    {
+        return $this->schedule_type->isRecurring();
+    }
+
+    public function isOneTime(): bool
+    {
+        return $this->schedule_type === EventScheduleType::OneTime;
+    }
+
+    public function isUpcoming(): bool
+    {
+        return $this->nextOccurrence() !== null;
+    }
+
+    public function isPast(): bool
+    {
+        return $this->nextOccurrence() === null;
+    }
+
+    public function nextOccurrence(?Carbon $from = null): ?Carbon
+    {
+        return (new EventScheduleService)->nextOccurrence($this, $from);
+    }
+
+    public function scheduleLabel(): string
+    {
+        return (new EventScheduleService)->label($this);
+    }
+
+    public function effectiveIcon(): string
+    {
+        if ($this->icon !== null) {
+            return $this->icon;
+        }
+
+        $eventType = $this->eventType;
+
+        return $eventType instanceof EventType && $eventType->icon !== null
+            ? $eventType->icon
+            : EventIcons::DEFAULT;
     }
 
     public function locationLabel(): string
@@ -294,6 +457,7 @@ class Event extends Model
                 ? "{$this->venue_name} + online"
                 : 'Hybrid event',
             EventLocationType::Physical => $this->venue_name ?? $this->city ?? 'Venue to be announced',
+            null => $this->venue_name ?? $this->city ?? 'Venue to be announced',
         };
     }
 
@@ -315,26 +479,27 @@ class Event extends Model
         return $slug;
     }
 
-    private function eventHasEnded(): bool
-    {
-        $effectiveEnd = $this->ends_at ?? $this->starts_at;
-
-        return $effectiveEnd->isPast();
-    }
-
     /** @return array<string, string> */
     protected function casts(): array
     {
         return [
             'location_type' => EventLocationType::class,
+            'schedule_type' => EventScheduleType::class,
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'is_all_day' => 'boolean',
             'is_recurring' => 'boolean',
+            'recurrence_interval' => 'integer',
+            'recurrence_days' => 'array',
+            'recurrence_month' => 'integer',
+            'recurrence_day_of_month' => 'integer',
+            'recurrence_end_date' => 'date',
             'registration_required' => 'boolean',
             'registration_deadline' => 'datetime',
             'maximum_attendees' => 'integer',
             'is_featured' => 'boolean',
+            'is_active' => 'boolean',
+            'sort_order' => 'integer',
             'is_livestreamed' => 'boolean',
             'status' => EventStatus::class,
             'published_at' => 'datetime',

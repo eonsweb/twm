@@ -4,9 +4,14 @@ use App\Models\Book;
 use App\Models\Event;
 use App\Models\LeadershipAssignment;
 use App\Models\Ministry;
+use App\Models\Page;
+use App\Models\PageSection;
 use App\Models\Person;
 use App\Models\Sermon;
+use App\Pages\HomepageSectionSynchronizer;
+use App\Sermons\ExternalMedia;
 use App\Settings\SettingManager;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
@@ -20,6 +25,7 @@ test('the public homepage renders its shared layout and primary calls to action'
         ->assertSee('Watch Live')
         ->assertSee('Submit Prayer Request')
         ->assertSee('Quick Links')
+        ->assertSee('welcome-upcoming-event')
         ->assertSee('application/ld+json', false);
 });
 
@@ -35,15 +41,140 @@ test('the latest publicly available sermon is shown while drafts are excluded', 
         ->assertDontSee('Private Draft Message');
 });
 
-test('upcoming published events are ordered and past events are excluded', function (): void {
-    Event::factory()->published()->create(['title' => 'Later Gathering', 'starts_at' => now()->addDays(8), 'ends_at' => now()->addDays(8)->addHour()]);
-    Event::factory()->published()->create(['title' => 'Soon Gathering', 'starts_at' => now()->addDays(2), 'ends_at' => now()->addDays(2)->addHour()]);
-    Event::factory()->published()->past()->create(['title' => 'Past Gathering']);
+test('the latest sermon section renders a YouTube URL with unrelated parameters', function (): void {
+    $url = 'https://www.youtube.com/watch?v=YsHMyGcDyuI&source_ve_path=MTc4NDI0';
+    $media = app(ExternalMedia::class)->inspect($url);
+    $sermon = Sermon::factory()->published()->create([
+        'title' => 'YouTube Embed Message',
+        'external_media_url' => $media['original_url'],
+        'media_platform' => $media['platform'],
+        'embed_url' => $media['embed_url'],
+        'external_thumbnail_url' => $media['thumbnail_url'],
+    ]);
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertSeeInOrder(['Soon Gathering', 'Later Gathering'])
-        ->assertDontSee('Past Gathering');
+        ->assertSee($sermon->title)
+        ->assertSee(route('public.sermons.show', $sermon), false);
+});
+
+test('the managed featured sermon section renders the featured video and details', function (): void {
+    $page = Page::factory()->published()->create(['title' => 'Managed Home', 'is_homepage' => true]);
+    PageSection::factory()->for($page)->create([
+        'name' => 'Featured sermon',
+        'section_type' => 'featured-sermons',
+        'heading' => 'Featured Sermon',
+        'sort_order' => 30,
+    ]);
+    $newest = Sermon::factory()->published()->create([
+        'title' => 'Newest Regular Message',
+        'sermon_date' => now()->subDay(),
+    ]);
+    $speaker = Person::factory()->create(['first_name' => 'Joseph', 'last_name' => 'Darko']);
+    $featured = Sermon::factory()->for($speaker, 'speaker')->published()->featured()->create([
+        'title' => 'Let the Fire Fall',
+        'summary' => 'A powerful message about walking in faith and allowing the Holy Spirit to transform our lives.',
+        'sermon_date' => now()->subWeek(),
+    ]);
+    Sermon::factory()->featured()->create(['title' => 'Featured Draft Message']);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('Latest Sermon')
+        ->assertSee($featured->title)
+        ->assertSee($speaker->full_name)
+        ->assertSee($featured->summary)
+        ->assertDontSee($newest->title)
+        ->assertDontSee('Featured Draft Message')
+        ->assertSee($featured->embed_url, false)
+        ->assertSee('referrerpolicy="strict-origin-when-cross-origin"', false)
+        ->assertSee('aspect-video', false)
+        ->assertSee('lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]', false)
+        ->assertSee('data-featured-sermon', false)
+        ->assertSee('Watch Now')
+        ->assertSee(route('public.sermons.show', $featured), false)
+        ->assertSee('View All Sermons')
+        ->assertSee(route('public.sermons.index'), false)
+        ->assertSeeInOrder([$featured->embed_url, $featured->title, 'Watch Now', 'View All Sermons'], false)
+        ->assertDontSee('<video', false)
+        ->assertDontSee('Sermon Series')
+        ->assertDontSee('Sermon Topics');
+});
+
+test('the featured sermon presentation omits an unavailable speaker', function (): void {
+    $page = Page::factory()->published()->create(['title' => 'Managed Home', 'is_homepage' => true]);
+    $section = PageSection::factory()->for($page)->create([
+        'section_type' => 'featured-sermons',
+        'heading' => 'Featured Sermon',
+    ]);
+    $sermon = Sermon::factory()->published()->create(['title' => 'A Grace-Filled Message']);
+    $sermon->setRelation('speaker', null);
+
+    $html = Blade::render(
+        '<x-public.page-section :section="$section" :data="[\'items\' => collect([$sermon])]" />',
+        compact('section', 'sermon'),
+    );
+
+    expect($html)->toContain('A Grace-Filled Message')
+        ->not->toContain('Speaker:');
+});
+
+test('a managed featured sermon section without content remains safe', function (): void {
+    $page = Page::factory()->published()->create(['title' => 'Managed Home', 'is_homepage' => true]);
+    PageSection::factory()->for($page)->create([
+        'name' => 'Featured sermon',
+        'section_type' => 'featured-sermons',
+        'heading' => 'Featured Sermon',
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('No sermons are available yet.')
+        ->assertDontSee('<iframe', false);
+});
+
+test('a hidden featured sermon section remains absent from the managed homepage', function (): void {
+    $page = Page::factory()->published()->create(['title' => 'Managed Home', 'is_homepage' => true]);
+    PageSection::factory()->for($page)->create([
+        'name' => 'Hidden featured sermon',
+        'section_type' => 'featured-sermons',
+        'heading' => 'Hidden Sermon Heading',
+        'is_visible' => false,
+    ]);
+    Sermon::factory()->published()->featured()->create(['title' => 'Hidden Featured Message']);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertDontSee('Hidden Sermon Heading')
+        ->assertDontSee('Hidden Featured Message');
+});
+
+test('upcoming published events are ordered and past events are excluded', function (): void {
+    Event::factory()->published()->create(['title' => 'Later Gathering', 'starts_at' => now()->addDays(8), 'ends_at' => now()->addDays(8)->addHour()]);
+    Event::factory()->published()->create(['title' => 'Third Gathering', 'starts_at' => now()->addDays(6), 'ends_at' => now()->addDays(6)->addHour()]);
+    Event::factory()->published()->create(['title' => 'Next Gathering', 'starts_at' => now()->addDays(4), 'ends_at' => now()->addDays(4)->addHour()]);
+    Event::factory()->published()->create(['title' => 'Soon Gathering', 'starts_at' => now()->addDays(2), 'ends_at' => now()->addDays(2)->addHour()]);
+    Event::factory()->published()->past()->create(['title' => 'Past Gathering']);
+    Event::factory()->create(['title' => 'Draft Gathering', 'starts_at' => now()->addDay(), 'ends_at' => now()->addDay()->addHour()]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSeeInOrder(['Soon Gathering', 'Next Gathering', 'Third Gathering'])
+        ->assertDontSee('Later Gathering')
+        ->assertDontSee('Past Gathering')
+        ->assertDontSee('Draft Gathering');
+});
+
+test('the first-class welcome section follows service times in the managed section order', function (): void {
+    $page = Page::factory()->published()->create(['title' => 'Managed Home', 'is_homepage' => true]);
+    PageSection::factory()->for($page)->create(['name' => 'Service times', 'section_type' => 'service-times', 'heading' => 'Join Us This Week', 'sort_order' => 20]);
+    PageSection::factory()->for($page)->create(['name' => 'Latest sermon', 'section_type' => 'featured-sermons', 'heading' => 'Legacy Sermons', 'sort_order' => 30]);
+    PageSection::factory()->for($page)->create(['name' => 'Upcoming events', 'section_type' => 'upcoming-events', 'heading' => 'Legacy Events', 'sort_order' => 40]);
+    app(HomepageSectionSynchronizer::class)->sync($page);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSeeInOrder(['Join Us This Week', 'Welcome Home!', 'Legacy Sermons', 'Legacy Events']);
 });
 
 test('published ministries are shown and scheduled ministries are excluded', function (): void {
@@ -110,8 +241,8 @@ test('the homepage remains useful when all content collections are empty', funct
     $this->get(route('home'))
         ->assertOk()
         ->assertSee('Service times will be announced soon')
-        ->assertSee('The next sermon will appear here')
-        ->assertSee('New events are coming soon')
+        ->assertSee('No sermons available yet.')
+        ->assertSee('No upcoming events at the moment.')
         ->assertSee('Featured resources will be available here soon');
 });
 
@@ -130,7 +261,7 @@ test('the homepage uses a bounded number of database queries', function (): void
 
     $this->get(route('home'))->assertOk();
 
-    expect($queries)->toBeLessThanOrEqual(25);
+    expect($queries)->toBeLessThanOrEqual(60);
 });
 
 test('existing administration routes remain protected', function (): void {

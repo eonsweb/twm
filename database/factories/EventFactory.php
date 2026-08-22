@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\EventLocationType;
+use App\EventScheduleType;
 use App\EventStatus;
 use App\Models\Event;
 use App\Models\EventType;
@@ -46,13 +47,22 @@ class EventFactory extends Factory
             'starts_at' => $startsAt,
             'ends_at' => $startsAt->addHours(2),
             'timezone' => 'Africa/Accra',
+            'schedule_type' => EventScheduleType::OneTime,
             'is_all_day' => false,
             'is_recurring' => false,
             'recurrence_rule' => null,
+            'recurrence_interval' => 1,
+            'recurrence_days' => null,
+            'recurrence_week_of_month' => null,
+            'recurrence_month' => null,
+            'recurrence_day_of_month' => null,
+            'recurrence_end_date' => null,
             'registration_required' => false,
             'registration_deadline' => null,
             'maximum_attendees' => null,
             'is_featured' => false,
+            'is_active' => true,
+            'sort_order' => 0,
             'is_livestreamed' => false,
             'status' => EventStatus::Draft,
             'published_at' => null,
@@ -95,6 +105,39 @@ class EventFactory extends Factory
     public function featured(): static
     {
         return $this->state(fn (): array => ['is_featured' => true]);
+    }
+
+    /** @param list<string> $days */
+    public function weekly(array $days = ['sunday']): static
+    {
+        return $this->state(fn (): array => [
+            'schedule_type' => EventScheduleType::Weekly,
+            'is_recurring' => true,
+            'recurrence_rule' => EventScheduleType::Weekly->value,
+            'recurrence_days' => $days,
+        ]);
+    }
+
+    public function monthly(string $week = 'last', string $day = 'friday'): static
+    {
+        return $this->state(fn (): array => [
+            'schedule_type' => EventScheduleType::Monthly,
+            'is_recurring' => true,
+            'recurrence_rule' => EventScheduleType::Monthly->value,
+            'recurrence_days' => [$day],
+            'recurrence_week_of_month' => $week,
+        ]);
+    }
+
+    public function yearly(int $month = 6, ?int $day = null): static
+    {
+        return $this->state(fn (): array => [
+            'schedule_type' => EventScheduleType::Yearly,
+            'is_recurring' => true,
+            'recurrence_rule' => EventScheduleType::Yearly->value,
+            'recurrence_month' => $month,
+            'recurrence_day_of_month' => $day,
+        ]);
     }
 
     public function online(): static

@@ -72,6 +72,18 @@ class Media extends Model
             : null;
     }
 
+    public function publicImageUrl(): ?string
+    {
+        if ($this->media_type !== MediaType::Image
+            || $this->visibility !== MediaVisibility::Public
+            || $this->status !== MediaStatus::Active
+            || ! $this->existsOnDisk()) {
+            return null;
+        }
+
+        return $this->publicUrl();
+    }
+
     public function existsOnDisk(): bool
     {
         return Storage::disk($this->disk)->exists($this->path);

@@ -55,6 +55,13 @@
     display: none !important;
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .hero-parallax-image {
+        transform: none !important;
+        will-change: auto;
+    }
+}
+
 .admin-sidebar {
     background:
         radial-gradient(circle at 10% 4%, rgb(125 24 48 / 0.72), transparent 32%),

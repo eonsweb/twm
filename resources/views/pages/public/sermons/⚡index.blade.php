@@ -2,8 +2,6 @@
 
 use App\Models\Person;
 use App\Models\Sermon;
-use App\Models\SermonSeries;
-use App\Models\Topic;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Computed;
@@ -22,10 +20,6 @@ new #[Layout('layouts.public'), Title('Sermons')] class extends Component
     #[Url]
     public string $speaker = '';
     #[Url]
-    public string $series = '';
-    #[Url]
-    public string $topic = '';
-    #[Url]
     public string $year = '';
 
     public function updated(): void
@@ -38,7 +32,7 @@ new #[Layout('layouts.public'), Title('Sermons')] class extends Component
     {
         return Sermon::query()
             ->publiclyAvailable()
-            ->with(['speaker:id,title,first_name,middle_name,last_name,slug', 'series:id,title,slug'])
+            ->with('speaker:id,title,first_name,middle_name,last_name,slug')
             ->when($this->search !== '', function (Builder $query): void {
                 $search = '%'.trim($this->search).'%';
                 $query->where(fn (Builder $query): Builder => $query
@@ -47,8 +41,6 @@ new #[Layout('layouts.public'), Title('Sermons')] class extends Component
                     ->orWhere('scripture_reference', 'like', $search));
             })
             ->when($this->speaker !== '', fn (Builder $query): Builder => $query->where('speaker_id', $this->speaker))
-            ->when($this->series !== '', fn (Builder $query): Builder => $query->where('sermon_series_id', $this->series))
-            ->when($this->topic !== '', fn (Builder $query): Builder => $query->whereHas('topics', fn (Builder $topics): Builder => $topics->whereKey($this->topic)))
             ->when($this->year !== '', fn (Builder $query): Builder => $query->whereYear('sermon_date', $this->year))
             ->orderByDesc('sermon_date')
             ->orderByDesc('id')
@@ -61,7 +53,7 @@ new #[Layout('layouts.public'), Title('Sermons')] class extends Component
         return Sermon::query()
             ->publiclyAvailable()
             ->where('is_featured', true)
-            ->with(['speaker:id,title,first_name,middle_name,last_name', 'series:id,title'])
+            ->with('speaker:id,title,first_name,middle_name,last_name')
             ->orderBy('display_order')
             ->orderByDesc('sermon_date')
             ->first();
@@ -72,8 +64,6 @@ new #[Layout('layouts.public'), Title('Sermons')] class extends Component
     {
         return [
             'speakers' => Person::query()->publicSpeakers()->orderBy('first_name')->get(['id', 'title', 'first_name', 'middle_name', 'last_name']),
-            'series' => SermonSeries::query()->publiclyAvailable()->whereHas('sermons', fn (Builder $query): Builder => $query->publiclyAvailable())->orderBy('title')->get(['id', 'title']),
-            'topics' => Topic::query()->active()->whereHas('sermons', fn (Builder $query): Builder => $query->publiclyAvailable())->orderBy('name')->get(['id', 'name']),
             'years' => Sermon::query()
                 ->publiclyAvailable()
                 ->select('sermon_date')
@@ -97,11 +87,9 @@ new #[Layout('layouts.public'), Title('Sermons')] class extends Component
             <section aria-labelledby="featured-sermon"><h2 id="featured-sermon" class="mb-4 text-2xl font-bold">{{ __('Featured sermon') }}</h2><div class="grid overflow-hidden rounded-2xl bg-church-maroon-950 text-white shadow-xl lg:grid-cols-2"><div class="aspect-video lg:aspect-auto">@if ($this->featured->thumbnailUrl())<img src="{{ $this->featured->thumbnailUrl() }}" alt="" class="h-full w-full object-cover">@endif</div><div class="flex flex-col justify-center p-7 sm:p-10"><p class="text-sm font-semibold text-church-gold-400">{{ $this->featured->speaker->full_name }}</p><h3 class="mt-2 text-3xl font-bold">{{ $this->featured->title }}</h3><p class="mt-4 line-clamp-3 text-white/75">{{ $this->featured->summary }}</p><a href="{{ route('public.sermons.show', $this->featured) }}" class="mt-6 inline-flex w-fit rounded-lg bg-church-gold-500 px-5 py-3 font-semibold text-church-maroon-950" wire:navigate>{{ __('Watch or listen') }}</a></div></div></section>
         @endif
         <section class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div class="grid gap-4 md:grid-cols-3">
                 <flux:input wire:model.live.debounce.350ms="search" icon="magnifying-glass" :label="__('Search')" />
                 <flux:select wire:model.live="speaker" :label="__('Speaker')"><flux:select.option value="">{{ __('All speakers') }}</flux:select.option>@foreach ($this->filters['speakers'] as $item)<flux:select.option :value="$item->id">{{ $item->full_name }}</flux:select.option>@endforeach</flux:select>
-                <flux:select wire:model.live="series" :label="__('Series')"><flux:select.option value="">{{ __('All series') }}</flux:select.option>@foreach ($this->filters['series'] as $item)<flux:select.option :value="$item->id">{{ $item->title }}</flux:select.option>@endforeach</flux:select>
-                <flux:select wire:model.live="topic" :label="__('Topic')"><flux:select.option value="">{{ __('All topics') }}</flux:select.option>@foreach ($this->filters['topics'] as $item)<flux:select.option :value="$item->id">{{ $item->name }}</flux:select.option>@endforeach</flux:select>
                 <flux:select wire:model.live="year" :label="__('Year')"><flux:select.option value="">{{ __('All years') }}</flux:select.option>@foreach ($this->filters['years'] as $item)<flux:select.option :value="$item">{{ $item }}</flux:select.option>@endforeach</flux:select>
             </div>
         </section>

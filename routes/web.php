@@ -18,7 +18,6 @@ Route::livewire('/', 'pages::public.home')
 Route::middleware(EnforcePublicWebsiteAvailability::class)->group(function (): void {
     Route::livewire('sermons', 'pages::public.sermons.index')->name('public.sermons.index');
     Route::livewire('sermons/{sermon:slug}', 'pages::public.sermons.show')->name('public.sermons.show');
-    Route::livewire('sermon-series/{series:slug}', 'pages::public.sermon-series.show')->name('public.sermon-series.show');
     Route::livewire('speakers/{speaker:slug}', 'pages::public.speakers.show')->name('public.speakers.show');
     Route::livewire('events', 'pages::public.events.index')->name('public.events.index');
     Route::livewire('events/{event:slug}', 'pages::public.events.show')->name('public.events.show');
@@ -151,15 +150,9 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'verified'])->g
         Route::livewire('sermons/{sermon:slug}', 'pages::sermons.show')
             ->middleware(PermissionMiddleware::using(PermissionName::SermonsView))
             ->name('sermons.show');
-        Route::livewire('sermon-series', 'pages::sermon-series.index')
-            ->middleware(PermissionMiddleware::using(PermissionName::SermonsView))
-            ->name('sermon-series.index');
         Route::livewire('speakers', 'pages::speakers.index')
             ->middleware(PermissionMiddleware::using(PermissionName::SermonsView))
             ->name('speakers.index');
-        Route::livewire('sermon-topics', 'pages::topics.index')
-            ->middleware(PermissionMiddleware::using(PermissionName::SermonsView))
-            ->name('sermon-topics.index');
         Route::livewire('events', 'pages::events.index')
             ->middleware(PermissionMiddleware::using(PermissionName::EventsView))
             ->name('events.index');
@@ -175,6 +168,15 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'verified'])->g
         Route::livewire('event-types', 'pages::event-types.index')
             ->middleware(PermissionMiddleware::using(PermissionName::EventTypesView))
             ->name('event-types.index');
+        Route::livewire('service-schedules', 'pages::service-schedules.index')
+            ->middleware(PermissionMiddleware::using(PermissionName::ServiceSchedulesView))
+            ->name('service-schedules.index');
+        Route::livewire('service-schedules/create', 'pages::service-schedules.create')
+            ->middleware(PermissionMiddleware::using(PermissionName::ServiceSchedulesCreate))
+            ->name('service-schedules.create');
+        Route::livewire('service-schedules/{serviceSchedule}/edit', 'pages::service-schedules.edit')
+            ->middleware(PermissionMiddleware::using(PermissionName::ServiceSchedulesUpdate))
+            ->name('service-schedules.edit');
         Route::livewire('ministries', 'pages::ministries.index')
             ->middleware(PermissionMiddleware::using(PermissionName::MinistriesView))
             ->name('ministries.index');

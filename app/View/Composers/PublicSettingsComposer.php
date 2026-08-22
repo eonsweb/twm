@@ -38,9 +38,8 @@ class PublicSettingsComposer
                 Cache::rememberForever(
                     'system-settings.public.service-schedules',
                     fn () => ServiceSchedule::query()
-                        ->where('is_active', true)
-                        ->orderBy('display_order')
-                        ->orderBy('id')
+                        ->active()
+                        ->ordered()
                         ->get(),
                 ),
             );

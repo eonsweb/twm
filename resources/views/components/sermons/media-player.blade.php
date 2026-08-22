@@ -13,10 +13,10 @@
                 title="{{ __('Media player for :title', ['title' => $sermon->title]) }}"
                 class="h-full w-full border-0"
                 loading="lazy"
-                allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowfullscreen
                 sandbox="allow-scripts allow-same-origin allow-presentation"
-                referrerpolicy="no-referrer"
+                referrerpolicy="strict-origin-when-cross-origin"
             ></iframe>
         </div>
     @else

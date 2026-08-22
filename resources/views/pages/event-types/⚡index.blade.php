@@ -2,6 +2,7 @@
 
 use App\Actions\Events\SaveEventType;
 use App\Models\EventType;
+use App\Support\EventIcons;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -60,8 +61,8 @@ new #[Title('Event Types')] class extends Component
         $this->validate([
             'name' => ['required', 'string', 'max:100', Rule::unique(EventType::class, 'name')->ignore($this->eventTypeId)],
             'description' => ['nullable', 'string', 'max:2000'],
-            'color' => ['nullable', 'string', 'max:32'],
-            'icon' => ['nullable', 'string', 'max:64'],
+            'color' => ['nullable', Rule::in(['emerald', 'blue', 'amber', 'rose', 'violet', 'cyan', 'indigo', 'slate', 'yellow', 'teal', 'zinc'])],
+            'icon' => ['nullable', Rule::in(EventIcons::values())],
             'isActive' => ['boolean'],
             'sortOrder' => ['required', 'integer', 'min:0'],
         ]);
@@ -129,7 +130,7 @@ new #[Title('Event Types')] class extends Component
                     <flux:table.rows>
                         @foreach ($this->eventTypes as $eventType)
                             <flux:table.row :key="$eventType->id" wire:key="event-type-row-{{ $eventType->id }}">
-                                <flux:table.cell class="ps-4"><p class="font-semibold">{{ $eventType->name }}</p><p class="text-xs text-slate-500">{{ $eventType->slug }}</p></flux:table.cell>
+                                <flux:table.cell class="ps-4"><div class="flex items-center gap-3"><span class="flex size-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300"><flux:icon :name="$eventType->icon ?? \App\Support\EventIcons::DEFAULT" class="size-5" /></span><div><p class="font-semibold">{{ $eventType->name }}</p><p class="text-xs text-slate-500">{{ $eventType->slug }}</p></div></div></flux:table.cell>
                                 <flux:table.cell><p class="max-w-md">{{ str($eventType->description)->limit(100) }}</p></flux:table.cell>
                                 <flux:table.cell>{{ $eventType->events_count }}</flux:table.cell>
                                 <flux:table.cell><flux:badge :color="$eventType->is_active ? 'green' : 'zinc'">{{ $eventType->is_active ? __('Active') : __('Inactive') }}</flux:badge></flux:table.cell>
@@ -148,7 +149,7 @@ new #[Title('Event Types')] class extends Component
             <flux:input wire:model="name" :label="__('Name')" required />
             <flux:textarea wire:model="description" :label="__('Description')" rows="4" />
             <div class="grid gap-4 sm:grid-cols-2"><flux:select wire:model="color" :label="__('Badge color')">@foreach (['emerald', 'blue', 'amber', 'rose', 'violet', 'cyan', 'indigo', 'slate', 'yellow', 'teal', 'zinc'] as $item)<flux:select.option :value="$item">{{ str($item)->headline() }}</flux:select.option>@endforeach</flux:select><flux:input wire:model="sortOrder" :label="__('Sort order')" type="number" min="0" /></div>
-            <flux:input wire:model="icon" :label="__('Icon name')" description="{{ __('Use an installed Heroicon name, for example calendar-days.') }}" />
+            <flux:select wire:model="icon" :label="__('Icon')">@foreach (EventIcons::options() as $value => $label)<flux:select.option :value="$value">{{ $label }}</flux:select.option>@endforeach</flux:select>
             <flux:switch wire:model="isActive" :label="__('Active')" />
             <div class="flex justify-end gap-3"><flux:button type="button" variant="ghost" wire:click="$set('showFormModal', false)">{{ __('Cancel') }}</flux:button><flux:button type="submit" variant="primary" wire:loading.attr="disabled">{{ __('Save event type') }}</flux:button></div>
         </form>
