@@ -16,7 +16,7 @@
 
         <x-public.site-header :settings="$publicSettings" />
 
-        <main id="public-main" @class(['bg-gray-900 pt-20' => ! $isHomepage])>{{ $slot }}</main>
+        <main id="public-main">{{ $slot }}</main>
 
         <x-public.site-footer :settings="$publicSettings" />
 

@@ -432,6 +432,7 @@ new #[Layout('layouts.app')] class extends Component
                         @foreach(PageSectionType::cases() as $type)
                             @continue($page->is_homepage && $type === PageSectionType::WelcomeUpcomingEvent)
                             @continue($page->is_homepage && $type === PageSectionType::Welcome && $sectionId === null && $page->sections->contains(fn (PageSection $section): bool => $section->section_type === PageSectionType::Welcome))
+                            @continue($page->is_homepage && $type === PageSectionType::FeaturedBook && $sectionId === null && $page->sections->contains(fn (PageSection $section): bool => $section->section_type === PageSectionType::FeaturedBook))
                             <flux:select.option :value="$type->value">{{ $type->label() }}</flux:select.option>
                         @endforeach
                     </flux:select>

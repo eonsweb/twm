@@ -8,13 +8,16 @@ use App\EventStatus;
 use App\Models\ActivityLog;
 use App\Models\Event;
 use App\Models\EventType;
+use App\Models\Media;
 use App\Models\Ministry;
 use App\Models\User;
 use App\PermissionName;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
@@ -106,6 +109,166 @@ test('event edit selectors retain inactive current assignments', function (): vo
         ->assertDontSee($otherInactiveEventType->name)
         ->assertSee($currentMinistry->name)
         ->assertDontSee($otherInactiveMinistry->name);
+});
+
+test('an event media library selection is persisted when creating an event', function (): void {
+    Storage::fake('public');
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::EventsCreate->value);
+    $media = Media::factory()->create();
+    Storage::disk($media->disk)->put($media->path, 'event artwork');
+
+    Livewire::actingAs($actor)
+        ->test('pages::events.create')
+        ->set('form.title', 'Media Library Event')
+        ->set('form.venueName', 'Main Auditorium')
+        ->set('form.featuredImageIds', [$media->id])
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $event = Event::query()->where('title', 'Media Library Event')->firstOrFail();
+
+    expect($event->featured_image_id)->toBe($media->id)
+        ->and($event->featuredImage->is($media))->toBeTrue();
+});
+
+test('the event edit form hydrates its existing media library image', function (): void {
+    Storage::fake('public');
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::EventsUpdate->value);
+    $media = Media::factory()->create(['name' => 'Existing Event Artwork']);
+    Storage::disk($media->disk)->put($media->path, 'event artwork');
+    $event = Event::factory()->create(['featured_image_id' => $media->id]);
+
+    Livewire::actingAs($actor)
+        ->test('pages::events.edit', ['event' => $event])
+        ->assertSet('form.featuredImageIds', [$media->id])
+        ->assertSee($media->name);
+});
+
+test('the update event control remains inside the event form after browser html parsing', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo([
+        PermissionName::EventsUpdate->value,
+        PermissionName::MediaCreate->value,
+    ]);
+    $event = Event::factory()->create();
+
+    $html = $this->actingAs($actor)
+        ->get(route('events.edit', $event))
+        ->assertOk()
+        ->getContent();
+    $document = new DOMDocument;
+    $previousLibxmlState = libxml_use_internal_errors(true);
+    $document->loadHTML($html);
+    libxml_clear_errors();
+    libxml_use_internal_errors($previousLibxmlState);
+    $xpath = new DOMXPath($document);
+    $updateButtons = $xpath->query('//button[contains(normalize-space(.), "Update event")]');
+    $submitButtons = $xpath->query('//button[contains(normalize-space(.), "Update event") and @type="submit"]');
+    $eventForms = $xpath->query('//button[contains(normalize-space(.), "Update event")]/ancestor::form[1]');
+    $eventFormContents = Str::of($html)
+        ->after('<form wire:submit="save" class="space-y-6" data-event-edit-form>')
+        ->before('</form>');
+
+    expect($updateButtons)->not->toBeFalse()
+        ->and($updateButtons?->length)->toBe(1)
+        ->and($submitButtons)->not->toBeFalse()
+        ->and($submitButtons?->length)->toBe(1)
+        ->and($eventForms)->not->toBeFalse()
+        ->and($eventForms?->length)->toBe(1)
+        ->and($eventFormContents->contains('<form'))->toBeFalse()
+        ->and($eventFormContents->contains('Update event'))->toBeTrue()
+        ->and($eventFormContents->contains('Updating...'))->toBeTrue();
+});
+
+test('editing event details without changing the image preserves its media association', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::EventsUpdate->value);
+    $media = Media::factory()->create();
+    $event = Event::factory()->create(['featured_image_id' => $media->id]);
+
+    Livewire::actingAs($actor)
+        ->test('pages::events.edit', ['event' => $event])
+        ->set('form.title', 'Updated Event Title')
+        ->set('form.description', 'Updated event description.')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($event->refresh())
+        ->title->toBe('Updated Event Title')
+        ->description->toBe('Updated event description.')
+        ->featured_image_id->toBe($media->id);
+});
+
+test('invalid event edits show validation errors and leave the event unchanged', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::EventsUpdate->value);
+    $event = Event::factory()->create();
+    $originalTitle = $event->title;
+
+    Livewire::actingAs($actor)
+        ->test('pages::events.edit', ['event' => $event])
+        ->set('form.title', '')
+        ->call('save')
+        ->assertHasErrors(['form.title' => 'required'])
+        ->assertSee('Event could not be updated')
+        ->assertSee('Please correct the highlighted fields.');
+
+    expect($event->refresh()->title)->toBe($originalTitle);
+});
+
+test('an event image can be replaced with another media library image', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::EventsUpdate->value);
+    $oldMedia = Media::factory()->create();
+    $newMedia = Media::factory()->create();
+    $event = Event::factory()->create(['featured_image_id' => $oldMedia->id]);
+
+    Livewire::actingAs($actor)
+        ->test('pages::events.edit', ['event' => $event])
+        ->set('form.featuredImageIds', [$newMedia->id])
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($event->refresh()->featured_image_id)->toBe($newMedia->id)
+        ->and($oldMedia->fresh())->not->toBeNull();
+});
+
+test('an event image is removed only after its media selection is explicitly cleared', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::EventsUpdate->value);
+    $media = Media::factory()->create();
+    $event = Event::factory()->create(['featured_image_id' => $media->id]);
+
+    Livewire::actingAs($actor)
+        ->test('pages::events.edit', ['event' => $event])
+        ->call('removeEventImage')
+        ->assertSet('form.featuredImageIds', [])
+        ->assertSet('form.removeFeaturedImage', true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($event->refresh()->featured_image_id)->toBeNull()
+        ->and($media->fresh())->not->toBeNull();
+});
+
+test('explicitly removing a legacy event upload deletes its owned file', function (): void {
+    Storage::fake('public');
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::EventsUpdate->value);
+    $path = 'events/legacy-event-artwork.jpg';
+    Storage::disk('public')->put($path, 'legacy event artwork');
+    $event = Event::factory()->create(['featured_image' => $path]);
+
+    Livewire::actingAs($actor)
+        ->test('pages::events.edit', ['event' => $event])
+        ->call('removeEventImage')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($event->refresh()->featured_image)->toBeNull();
+    Storage::disk('public')->assertMissing($path);
 });
 
 test('unauthorized users cannot access event administration', function (): void {
@@ -248,12 +411,135 @@ test('events can be soft deleted and restored with permission', function (): voi
     $event = Event::factory()->create();
 
     app(DeleteEvent::class)->delete($actor, $event);
+    $this->assertSoftDeleted($event);
     expect(Event::query()->find($event->id))->toBeNull()
+        ->and(Event::withTrashed()->find($event->id))->not->toBeNull()
         ->and(Event::withTrashed()->find($event->id)?->trashed())->toBeTrue();
 
     app(DeleteEvent::class)->restore($actor, Event::withTrashed()->findOrFail($event->id));
     expect($event->fresh())->not->toBeNull()
         ->and(ActivityLog::query()->where('event', 'event.restored')->exists())->toBeTrue();
+});
+
+test('authorized users can permanently delete only trashed events', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::EventsForceDelete->value);
+    $event = Event::factory()->create();
+    $event->delete();
+
+    app(DeleteEvent::class)->forceDelete($actor, $event);
+
+    expect(Event::withTrashed()->find($event->id))->toBeNull()
+        ->and(ActivityLog::query()->where('event', 'event.force-deleted')->exists())->toBeTrue();
+});
+
+test('permanent deletion cannot target an active event', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::EventsForceDelete->value);
+    $event = Event::factory()->create();
+
+    expect(fn () => app(DeleteEvent::class)->forceDelete($actor, $event))
+        ->toThrow(ModelNotFoundException::class);
+
+    expect($event->fresh())->not->toBeNull();
+});
+
+test('unauthorized users cannot permanently delete an event', function (): void {
+    $actor = User::factory()->create();
+    $event = Event::factory()->create();
+    $event->delete();
+
+    expect(fn () => app(DeleteEvent::class)->forceDelete($actor, $event))
+        ->toThrow(AuthorizationException::class);
+
+    expect(Event::onlyTrashed()->find($event->id))->not->toBeNull();
+});
+
+test('permanent deletion removes owned uploads but preserves shared media library assets', function (): void {
+    Storage::fake('public');
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::EventsForceDelete->value);
+    $sharedMedia = Media::factory()->create();
+    $ownedImage = 'events/owned-event-artwork.jpg';
+    Storage::disk('public')->put($sharedMedia->path, 'shared artwork');
+    Storage::disk('public')->put($ownedImage, 'owned artwork');
+    $event = Event::factory()->create([
+        'featured_image' => $ownedImage,
+        'featured_image_id' => $sharedMedia->id,
+    ]);
+    $event->delete();
+
+    app(DeleteEvent::class)->forceDelete($actor, $event);
+
+    expect(Event::withTrashed()->find($event->id))->toBeNull()
+        ->and($sharedMedia->fresh())->not->toBeNull();
+    Storage::disk('public')->assertMissing($ownedImage);
+    Storage::disk('public')->assertExists($sharedMedia->path);
+});
+
+test('the trashed events listing confirms and completes permanent deletion', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo([
+        PermissionName::EventsView->value,
+        PermissionName::EventsRestore->value,
+        PermissionName::EventsForceDelete->value,
+    ]);
+    $event = Event::factory()->create(['title' => 'Event Awaiting Permanent Deletion']);
+    $event->delete();
+
+    Livewire::actingAs($actor)
+        ->test('pages::events.index')
+        ->set('status', 'deleted')
+        ->assertSee($event->title)
+        ->assertSee('Delete Permanently')
+        ->call('confirm', $event->id, 'force-delete')
+        ->assertSet('showConfirmModal', true)
+        ->assertSee('Permanently delete this event?')
+        ->assertSee('This action cannot be undone.')
+        ->call('executeConfirmed')
+        ->assertSet('showConfirmModal', false)
+        ->assertDontSee($event->title);
+
+    expect(Event::withTrashed()->find($event->id))->toBeNull();
+});
+
+test('the permanent deletion handler safely rejects active and stale event ids', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo([
+        PermissionName::EventsView->value,
+        PermissionName::EventsForceDelete->value,
+    ]);
+    $activeEvent = Event::factory()->create();
+
+    Livewire::actingAs($actor)
+        ->test('pages::events.index')
+        ->call('confirm', $activeEvent->id, 'force-delete')
+        ->assertSet('showConfirmModal', false)
+        ->call('confirm', PHP_INT_MAX, 'force-delete')
+        ->assertSet('showConfirmModal', false);
+
+    expect($activeEvent->fresh())->not->toBeNull();
+});
+
+test('a stale permanent deletion confirmation is handled after another administrator restores the event', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo([
+        PermissionName::EventsView->value,
+        PermissionName::EventsForceDelete->value,
+    ]);
+    $event = Event::factory()->create();
+    $event->delete();
+    $component = Livewire::actingAs($actor)
+        ->test('pages::events.index')
+        ->call('confirm', $event->id, 'force-delete')
+        ->assertSet('showConfirmModal', true);
+
+    $event->restore();
+
+    $component->call('executeConfirmed')
+        ->assertSet('showConfirmModal', false);
+
+    expect($event->fresh())->not->toBeNull();
 });
 
 test('admin search and filters return matching events', function (): void {
@@ -290,6 +576,30 @@ test('only publicly available events appear on public pages', function (): void 
     $this->get(route('public.events.show', $published))->assertOk()->assertSee($published->title);
     $this->get(route('public.events.show', $draft))->assertNotFound();
     $this->get(route('public.events.show', $scheduled))->assertNotFound();
+});
+
+test('the public event detail page prioritizes a usable media library image', function (): void {
+    Storage::fake('public');
+    $media = Media::factory()->create();
+    Storage::disk($media->disk)->put($media->path, 'event artwork');
+    $event = Event::factory()->published()->create(['featured_image_id' => $media->id]);
+
+    $this->get(route('public.events.show', $event))
+        ->assertOk()
+        ->assertSee('data-event-image', false)
+        ->assertSee($media->publicImageUrl(), false)
+        ->assertDontSee('data-event-image-fallback', false);
+});
+
+test('the public event detail page falls back safely when its media file is missing', function (): void {
+    Storage::fake('public');
+    $media = Media::factory()->create();
+    $event = Event::factory()->published()->create(['featured_image_id' => $media->id]);
+
+    $this->get(route('public.events.show', $event))
+        ->assertOk()
+        ->assertSee('data-event-image-fallback', false)
+        ->assertDontSee('data-event-image src=', false);
 });
 
 test('cancelled previously published events retain a public cancellation notice', function (): void {

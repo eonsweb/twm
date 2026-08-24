@@ -17,6 +17,7 @@ use App\RoleName;
 use Database\Seeders\BookSeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -50,6 +51,7 @@ function validBookData(array $overrides = []): array
         'purchase_url' => 'https://example.test/purchase',
         'download_url' => null,
         'media_id' => null,
+        'audio_sample_media_id' => null,
         'is_featured' => false,
         'is_free' => false,
         'status' => BookStatus::Draft->value,
@@ -133,6 +135,32 @@ test('paid books require a valid price and free books clear their price', functi
     ]));
 
     expect($free->price)->toBeNull()->and($free->displayPrice())->toBe('Free');
+});
+
+test('purchase URL falls back to the public slug route and preserves custom URLs', function (): void {
+    URL::forceRootUrl('http://localhost');
+    URL::forceScheme('http');
+    $book = Book::factory()->create([
+        'slug' => 'the-mystery-of-midnight-prayers',
+        'purchase_url' => null,
+    ]);
+
+    expect($book->getRawOriginal('purchase_url'))->toBeNull()
+        ->and($book->purchase_url)->toBe('http://localhost/books/the-mystery-of-midnight-prayers')
+        ->and($book->isPurchaseUrlExternal())->toBeFalse();
+
+    URL::forceRootUrl('https://twm.example');
+    URL::forceScheme('https');
+
+    expect($book->purchase_url)->toBe('https://twm.example/books/the-mystery-of-midnight-prayers');
+
+    $book->update(['purchase_url' => 'https://external-bookstore.example/book']);
+
+    expect($book->purchase_url)->toBe('https://external-bookstore.example/book')
+        ->and($book->isPurchaseUrlExternal())->toBeTrue();
+
+    URL::forceRootUrl(null);
+    URL::forceScheme(null);
 });
 
 test('slugs are normalized and unique even across deleted books', function (): void {
@@ -272,13 +300,88 @@ test('livewire create form stores a media library cover and linked author', func
         ->set('form.currency', 'GHS')
         ->set('form.availabilityStatus', BookAvailabilityStatus::Available->value)
         ->set('form.mediaIds', [$cover->id])
+        ->assertSee('Purchase URL (Optional)')
+        ->assertSee("Leave blank to use the book's public page automatically.")
         ->call('saveDraft')
         ->assertHasNoErrors()
         ->assertRedirect();
 
     $book = Book::query()->where('slug', 'a-new-book')->firstOrFail();
     expect($book->media_id)->toBe($cover->id)
-        ->and($book->status)->toBe(BookStatus::Draft);
+        ->and($book->status)->toBe(BookStatus::Draft)
+        ->and($book->getRawOriginal('purchase_url'))->toBeNull()
+        ->and($book->purchase_url)->toBe(route('public.books.show', $book));
+});
+
+test('book forms keep the generated purchase URL out of the nullable admin field', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::BooksUpdate->value);
+    $book = Book::factory()->create(['purchase_url' => null]);
+
+    Livewire::actingAs($actor)->test('pages::books.edit', ['book' => $book])
+        ->assertSet('form.purchaseUrl', '');
+});
+
+test('digital books can be saved without a custom purchase or download URL', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::BooksCreate->value);
+
+    Livewire::actingAs($actor)->test('pages::books.create')
+        ->set('form.title', 'Digital Prayer Guide')
+        ->set('form.slug', 'digital-prayer-guide')
+        ->set('form.authorName', 'TWM Leadership')
+        ->set('form.format', BookFormat::Ebook->value)
+        ->set('form.price', '25.00')
+        ->set('form.currency', 'GHS')
+        ->set('form.availabilityStatus', BookAvailabilityStatus::Available->value)
+        ->set('form.purchaseUrl', '')
+        ->set('form.downloadUrl', '')
+        ->call('saveDraft')
+        ->assertHasNoErrors();
+
+    $book = Book::query()->where('slug', 'digital-prayer-guide')->firstOrFail();
+
+    expect($book->getRawOriginal('purchase_url'))->toBeNull()
+        ->and($book->purchase_url)->toBe(route('public.books.show', $book));
+});
+
+test('livewire book forms persist an active public media library audio sample', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo([
+        PermissionName::BooksCreate->value,
+        PermissionName::MediaView->value,
+    ]);
+    $audio = Media::factory()->create([
+        'media_type' => MediaType::Audio,
+        'mime_type' => 'audio/mpeg',
+        'extension' => 'mp3',
+        'path' => 'media/audio/book-preview.mp3',
+    ]);
+
+    Livewire::actingAs($actor)->test('pages::books.create')
+        ->set('form.title', 'A Book With Audio')
+        ->set('form.slug', 'a-book-with-audio')
+        ->set('form.authorName', 'Guest Writer')
+        ->set('form.shortDescription', 'A useful book with a preview for every reader.')
+        ->set('form.format', BookFormat::Physical->value)
+        ->set('form.price', '25.00')
+        ->set('form.currency', 'GHS')
+        ->set('form.availabilityStatus', BookAvailabilityStatus::Available->value)
+        ->set('form.audioSampleMediaIds', [$audio->id])
+        ->call('saveDraft')
+        ->assertHasNoErrors();
+
+    expect(Book::query()->where('slug', 'a-book-with-audio')->value('audio_sample_media_id'))->toBe($audio->id);
+});
+
+test('book audio samples must be active public audio media', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::BooksCreate->value);
+    $image = Media::factory()->create();
+
+    expect(fn () => app(SaveBook::class)->handle($actor, validBookData([
+        'audio_sample_media_id' => $image->id,
+    ])))->toThrow(ValidationException::class);
 });
 
 test('livewire workflow actions authorize on the server', function (): void {

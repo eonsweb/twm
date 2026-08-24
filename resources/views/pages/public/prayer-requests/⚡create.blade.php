@@ -53,8 +53,9 @@ new #[Layout('layouts.public'), Title('Submit a Prayer Request')] class extends 
 };
 ?>
 
-<main class="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
-    <header class="max-w-3xl"><p class="font-semibold text-church-maroon-700 dark:text-church-gold-400">{{ __('Prayer and care') }}</p><h1 class="mt-2 text-4xl font-bold tracking-tight">{{ __('Submit a prayer request') }}</h1><p class="mt-4 text-lg text-slate-600 dark:text-zinc-300">{{ __('Your request is confidential by default and will be handled with care by authorized prayer-team members.') }}</p></header>
+<div>
+    <header class="bg-church-maroon-950 text-white"><div class="mx-auto max-w-4xl px-4 pb-16 pt-28 sm:px-6 sm:pb-20 sm:pt-32 lg:px-8 lg:pt-36"><p class="font-semibold text-church-gold-400">{{ __('Prayer and care') }}</p><h1 class="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">{{ __('Submit a prayer request') }}</h1><p class="mt-4 max-w-3xl text-lg text-white/80">{{ __('Your request is confidential by default and will be handled with care by authorized prayer-team members.') }}</p></div></header>
+    <section class="mx-auto max-w-4xl bg-white px-4 py-14 text-zinc-950 sm:px-6 lg:px-8">
 
     @if ($successReference)
         <flux:callout class="mt-8" variant="success" icon="check-circle" heading="{{ __('Your prayer request was received') }}">
@@ -72,4 +73,5 @@ new #[Layout('layouts.public'), Title('Submit a Prayer Request')] class extends 
             <div class="flex justify-end"><flux:button type="submit" variant="primary" icon="paper-airplane" wire:loading.attr="disabled" wire:target="submit"><span wire:loading.remove wire:target="submit">{{ __('Submit prayer request') }}</span><span wire:loading wire:target="submit">{{ __('Submitting securely…') }}</span></flux:button></div>
         </form>
     @endif
-</main>
+    </section>
+</div>

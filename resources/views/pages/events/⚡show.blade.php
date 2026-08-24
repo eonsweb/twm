@@ -14,7 +14,12 @@ new #[Title('Event Preview')] class extends Component
     {
         Gate::authorize('view', $event);
         abort_if($event->trashed(), 404);
-        $this->event = $event->load(['eventType:id,name,color', 'creator:id,name', 'updater:id,name']);
+        $this->event = $event->load([
+            'eventType:id,name,color',
+            'featuredImage:id,disk,path,media_type,visibility,status',
+            'creator:id,name',
+            'updater:id,name',
+        ]);
     }
 };
 ?>

@@ -359,12 +359,16 @@ test('homepage welcome synchronization is idempotent and inserts after service t
 
     expect($first->is($second))->toBeTrue()
         ->and($sections->where('section_type', PageSectionType::Welcome))->toHaveCount(1)
+        ->and($sections->where('section_type', PageSectionType::MinistriesGrid))->toHaveCount(1)
+        ->and($sections->where('section_type', PageSectionType::FeaturedBook))->toHaveCount(1)
         ->and($sections->pluck('section_type')->map->value->all())->toBe([
             'hero',
             'service-times',
             'welcome',
             'featured-sermons',
             'upcoming-events',
+            'ministries-grid',
+            'featured-book',
         ])
         ->and($first->heading)->toBe('A Preserved Welcome')
         ->and($first->content)->toBe('This message came from the existing homepage settings.')

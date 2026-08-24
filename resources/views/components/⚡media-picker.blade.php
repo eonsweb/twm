@@ -162,7 +162,13 @@ new class extends Component
                 <flux:select wire:model.live="folder" :label="__('Folder')"><flux:select.option value="">{{ __('All folders') }}</flux:select.option><flux:select.option value="root">{{ __('Root') }}</flux:select.option>@foreach($this->folders as $item)<flux:select.option :value="$item->id">{{ $item->name }}</flux:select.option>@endforeach</flux:select>
             </div>
             @if($allowUpload && Auth::user()?->can('create', Media::class))
-                <form wire:submit="uploadNew" class="flex flex-col gap-3 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-end dark:border-zinc-700"><label class="min-w-0 flex-1 text-sm font-medium">{{ __('Upload a new asset') }}<input type="file" wire:model="upload" class="mt-2 block w-full text-sm"></label><flux:button type="submit" wire:loading.attr="disabled">{{ __('Upload') }}</flux:button></form>
+                <div class="flex flex-col gap-3 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-end dark:border-zinc-700">
+                    <label class="min-w-0 flex-1 text-sm font-medium">{{ __('Upload a new asset') }}<input type="file" wire:model="upload" class="mt-2 block w-full text-sm"></label>
+                    <flux:button type="button" wire:click="uploadNew" wire:loading.attr="disabled" wire:target="uploadNew">
+                        <span wire:loading.remove wire:target="uploadNew">{{ __('Upload') }}</span>
+                        <span wire:loading wire:target="uploadNew">{{ __('Uploading...') }}</span>
+                    </flux:button>
+                </div>
             @endif
             <div class="grid max-h-[55vh] grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-3 lg:grid-cols-4">
                 @forelse($this->assets as $media)

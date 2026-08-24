@@ -212,6 +212,64 @@ test('admin search status and featured filters return matching ministries', func
         ->assertDontSee($other->name);
 });
 
+test('ministry row actions have tooltips and accessible labels', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo([
+        PermissionName::MinistriesView->value,
+        PermissionName::MinistriesUpdate->value,
+        PermissionName::MinistriesDelete->value,
+        PermissionName::MinistriesRestore->value,
+        PermissionName::MinistriesForceDelete->value,
+        PermissionName::MinistriesPublish->value,
+    ]);
+    Ministry::factory()->published()->featured()->create(['name' => 'Published Featured Ministry']);
+    Ministry::factory()->create(['name' => 'Draft Ministry']);
+    $deleted = Ministry::factory()->create(['name' => 'Deleted Ministry']);
+    $deleted->delete();
+
+    $html = Livewire::actingAs($actor)->test('pages::ministries.index')->html();
+    $labels = [
+        'View ministry',
+        'Edit ministry',
+        'Publish ministry',
+        'Unpublish ministry',
+        'Mark as featured',
+        'Remove from featured',
+        'Delete ministry',
+        'Restore ministry',
+        'Permanently delete ministry',
+    ];
+
+    expect($html)->toContain('data-flux-tooltip');
+
+    foreach ($labels as $label) {
+        expect($html)
+            ->toContain('aria-label="'.$label.'"')
+            ->and(substr_count($html, $label))->toBeGreaterThanOrEqual(2);
+    }
+});
+
+test('the icon-only remove leader control has a tooltip and accessible label', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::MinistriesCreate->value);
+    $leader = Person::factory()->create();
+
+    $html = Livewire::actingAs($actor)
+        ->test('pages::ministries.create')
+        ->set('form.leaders', [[
+            'person_id' => $leader->id,
+            'role_title' => 'Leader',
+            'is_primary' => true,
+            'display_order' => 0,
+        ]])
+        ->html();
+
+    expect($html)
+        ->toContain('data-flux-tooltip')
+        ->toContain('aria-label="Remove leader"')
+        ->and(substr_count($html, 'Remove leader'))->toBeGreaterThanOrEqual(2);
+});
+
 test('livewire actions authorize on the server', function (): void {
     $actor = User::factory()->create();
     $actor->givePermissionTo(PermissionName::MinistriesView->value);

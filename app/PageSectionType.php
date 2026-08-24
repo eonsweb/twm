@@ -18,6 +18,7 @@ enum PageSectionType: string
     case WelcomeUpcomingEvent = 'welcome-upcoming-event';
     case ChurchLocations = 'church-locations';
     case Testimonials = 'testimonials';
+    case FeaturedBook = 'featured-book';
     case BooksGrid = 'books-grid';
     case DonationCallout = 'donation-callout';
     case PrayerRequestCallout = 'prayer-request-callout';

@@ -63,8 +63,8 @@ new #[Layout('layouts.public'), Title('Events')] class extends Component
 ?>
 
 <div>
-    <section class="bg-church-maroon-950 py-16 text-white sm:py-20">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section class="bg-church-maroon-950 text-white">
+        <div class="mx-auto max-w-7xl px-4 pb-16 pt-28 sm:px-6 sm:pb-20 sm:pt-32 lg:px-8 lg:pt-36">
             <p class="text-sm font-bold uppercase tracking-[0.2em] text-church-gold-400">{{ __('Life together') }}</p>
             <h1 class="mt-3 text-4xl font-black tracking-tight sm:text-5xl">{{ __('Church events') }}</h1>
             <p class="mt-5 max-w-2xl text-lg leading-8 text-white/75">{{ __('Discover services, conferences, prayer gatherings, outreach, and programmes where we worship, grow, and serve together.') }}</p>
@@ -73,7 +73,7 @@ new #[Layout('layouts.public'), Title('Events')] class extends Component
 
     <livewire:events.featured />
 
-    <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <section class="mx-auto max-w-7xl bg-white px-4 py-12 text-zinc-950 sm:px-6 lg:px-8">
         <div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_15rem_auto]">
                 <flux:input wire:model.live.debounce.350ms="search" icon="magnifying-glass" :label="__('Search events')" :placeholder="__('Search by event or location')" />

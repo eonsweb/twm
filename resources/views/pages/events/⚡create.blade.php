@@ -48,6 +48,13 @@ new #[Title('Create Event')] class extends Component
         $this->persist($saveEvent);
     }
 
+    public function removeEventImage(): void
+    {
+        $this->form->featuredImageIds = [];
+        $this->form->featuredImage = null;
+        $this->form->removeFeaturedImage = true;
+    }
+
     private function persist(SaveEvent $saveEvent): void
     {
         if ($this->form->status === EventStatus::Published->value && $this->form->publishedAt === '') {

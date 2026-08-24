@@ -6,6 +6,7 @@ use App\Activity\ActivityLogger;
 use App\Models\Event;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 
 class DeleteEvent
 {
@@ -23,6 +24,21 @@ class DeleteEvent
         Gate::forUser($actor)->authorize('restore', $event);
         $event->restore();
         $this->log($actor, $event, 'restored');
+    }
+
+    public function forceDelete(User $actor, Event $event): void
+    {
+        $event = Event::onlyTrashed()->findOrFail($event->getKey());
+        Gate::forUser($actor)->authorize('forceDelete', $event);
+        $ownedImage = $event->featured_image;
+
+        $event->forceDelete();
+
+        if ($ownedImage !== null) {
+            Storage::disk('public')->delete($ownedImage);
+        }
+
+        $this->log($actor, $event, 'force-deleted');
     }
 
     private function log(User $actor, Event $event, string $action): void

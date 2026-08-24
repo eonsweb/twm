@@ -132,8 +132,5 @@ class ChangeBookStatus
             throw ValidationException::withMessages(['book' => __('Paid books require a price before publishing.')]);
         }
 
-        if ($book->format->isDigital() && ! filled($book->download_url) && ! filled($book->purchase_url)) {
-            throw ValidationException::withMessages(['book' => __('Digital books require a download or purchase URL.')]);
-        }
     }
 }

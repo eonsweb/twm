@@ -45,15 +45,8 @@ new #[Layout('layouts.public')] class extends Component
             return ['items' => collect([$this->home['latestSermon']])->filter()];
         }
 
-        if ($section->section_type === PageSectionType::UpcomingEvents
-            && blank(data_get($section->settings, 'event_type_id'))) {
-            $limit = min(24, max(1, (int) data_get($section->settings, 'limit', 3)));
-
-            return [
-                'items' => $this->home['upcomingEvents']->take($limit),
-                'eventType' => null,
-                'viewAllUrl' => route('public.events.index'),
-            ];
+        if ($section->section_type === PageSectionType::FeaturedBook) {
+            return ['book' => $this->home['featuredBook']];
         }
 
         return $resolver->resolve($section);
@@ -97,7 +90,7 @@ new #[Layout('layouts.public')] class extends Component
 @if ($managedPage)
 <article class="overflow-hidden bg-white" aria-label="{{ $managedPage->title }}">
     @unless($managedHero)
-        <header class="bg-church-maroon-950 py-16 text-white sm:py-24"><div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"><h1 class="text-4xl font-bold tracking-tight sm:text-6xl">{{ $managedPage->title }}</h1>@if($managedPage->excerpt)<p class="mt-5 max-w-3xl text-lg text-white/80">{{ $managedPage->excerpt }}</p>@endif</div></header>
+        <header class="bg-church-maroon-950 text-white"><div class="mx-auto max-w-7xl px-4 pb-16 pt-28 sm:px-6 sm:pb-24 sm:pt-32 lg:px-8 lg:pt-36"><h1 class="text-4xl font-bold tracking-tight sm:text-6xl">{{ $managedPage->title }}</h1>@if($managedPage->excerpt)<p class="mt-5 max-w-3xl text-lg text-white/80">{{ $managedPage->excerpt }}</p>@endif</div></header>
     @endunless
     @if($managedPage->content && trim(strip_tags($managedPage->content)) !== 'Content for this page can be managed from the Pages administration module.')<div class="prose mx-auto max-w-4xl px-4 py-12 sm:px-6">{!! app(\App\Blog\HtmlSanitizer::class)->sanitize($managedPage->content) !!}</div>@endif
     @foreach($managedPage->sections as $section)
@@ -133,14 +126,13 @@ new #[Layout('layouts.public')] class extends Component
         <x-public.home.calls-to-action :settings="$settings" />
     @endif
 
-    @if (in_array('featured_book', $enabled, true) || in_array('testimonials', $enabled, true))
-        <div class="mx-auto grid max-w-7xl gap-6 px-4 py-12 sm:px-6 lg:grid-cols-12 lg:px-8">
-            @if (in_array('featured_book', $enabled, true))
-                <x-public.home.featured-book :book="$home['featuredBook']" class="lg:col-span-5" />
-            @endif
-            @if (in_array('testimonials', $enabled, true))
-                <x-public.home.testimonials :testimonials="$home['testimonials']" class="lg:col-span-7" />
-            @endif
+    @if (in_array('featured_book', $enabled, true))
+        <x-public.home.featured-book :book="$home['featuredBook']" />
+    @endif
+
+    @if (in_array('testimonials', $enabled, true))
+        <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+            <x-public.home.testimonials :testimonials="$home['testimonials']" />
         </div>
     @endif
 </div>

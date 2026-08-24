@@ -38,6 +38,7 @@ enum PermissionName: string
     case EventsUpdate = 'events.update';
     case EventsDelete = 'events.delete';
     case EventsRestore = 'events.restore';
+    case EventsForceDelete = 'events.force-delete';
     case EventsPublish = 'events.publish';
     case EventsCancel = 'events.cancel';
     case EventTypesView = 'event-types.view';

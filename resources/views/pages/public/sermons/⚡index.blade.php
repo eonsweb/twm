@@ -79,10 +79,10 @@ new #[Layout('layouts.public'), Title('Sermons')] class extends Component
 ?>
 
 <div>
-    <section class="bg-church-maroon-950 py-16 text-white sm:py-20">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"><p class="text-sm font-semibold uppercase tracking-[0.2em] text-church-gold-400">{{ __('Grow in the Word') }}</p><h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{{ __('Sermons') }}</h1><p class="mt-4 max-w-2xl text-lg leading-8 text-white/75">{{ __('Watch, listen, and revisit biblical teaching from our church family.') }}</p></div>
+    <section class="bg-church-maroon-950 text-white">
+        <div class="mx-auto max-w-7xl px-4 pb-16 pt-28 sm:px-6 sm:pb-20 sm:pt-32 lg:px-8 lg:pt-36"><p class="text-sm font-semibold uppercase tracking-[0.2em] text-church-gold-400">{{ __('Grow in the Word') }}</p><h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{{ __('Sermons') }}</h1><p class="mt-4 max-w-2xl text-lg leading-8 text-white/75">{{ __('Watch, listen, and revisit biblical teaching from our church family.') }}</p></div>
     </section>
-    <div class="mx-auto max-w-7xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-7xl space-y-10 bg-white px-4 py-10 text-zinc-950 sm:px-6 lg:px-8">
         @if ($this->featured)
             <section aria-labelledby="featured-sermon"><h2 id="featured-sermon" class="mb-4 text-2xl font-bold">{{ __('Featured sermon') }}</h2><div class="grid overflow-hidden rounded-2xl bg-church-maroon-950 text-white shadow-xl lg:grid-cols-2"><div class="aspect-video lg:aspect-auto">@if ($this->featured->thumbnailUrl())<img src="{{ $this->featured->thumbnailUrl() }}" alt="" class="h-full w-full object-cover">@endif</div><div class="flex flex-col justify-center p-7 sm:p-10"><p class="text-sm font-semibold text-church-gold-400">{{ $this->featured->speaker->full_name }}</p><h3 class="mt-2 text-3xl font-bold">{{ $this->featured->title }}</h3><p class="mt-4 line-clamp-3 text-white/75">{{ $this->featured->summary }}</p><a href="{{ route('public.sermons.show', $this->featured) }}" class="mt-6 inline-flex w-fit rounded-lg bg-church-gold-500 px-5 py-3 font-semibold text-church-maroon-950" wire:navigate>{{ __('Watch or listen') }}</a></div></div></section>
         @endif

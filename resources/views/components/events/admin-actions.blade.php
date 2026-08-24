@@ -21,6 +21,7 @@
             @can('delete', $event)<flux:menu.item wire:click="confirm({{ $event->id }}, 'delete')" icon="trash" variant="danger">{{ __('Delete') }}</flux:menu.item>@endcan
         @else
             @can('restore', $event)<flux:menu.item wire:click="confirm({{ $event->id }}, 'restore')" icon="arrow-uturn-left">{{ __('Restore') }}</flux:menu.item>@endcan
+            @can('forceDelete', $event)<flux:menu.item wire:click="confirm({{ $event->id }}, 'force-delete')" icon="trash" variant="danger">{{ __('Delete Permanently') }}</flux:menu.item>@endcan
         @endif
     </flux:menu>
 </flux:dropdown>

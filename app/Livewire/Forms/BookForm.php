@@ -68,6 +68,9 @@ class BookForm extends Form
     /** @var list<int> */
     public array $mediaIds = [];
 
+    /** @var list<int> */
+    public array $audioSampleMediaIds = [];
+
     public bool $isFeatured = false;
 
     public bool $isFree = false;
@@ -99,9 +102,10 @@ class BookForm extends Form
         $this->currency = $book->currency;
         $this->stockQuantity = $book->stock_quantity;
         $this->availabilityStatus = $book->availability_status->value;
-        $this->purchaseUrl = $book->purchase_url ?? '';
+        $this->purchaseUrl = (string) ($book->getRawOriginal('purchase_url') ?? '');
         $this->downloadUrl = $book->download_url ?? '';
         $this->mediaIds = $book->media_id === null ? [] : [$book->media_id];
+        $this->audioSampleMediaIds = $book->audio_sample_media_id === null ? [] : [$book->audio_sample_media_id];
         $this->isFeatured = $book->is_featured;
         $this->isFree = $book->is_free;
         $this->status = $book->status->value;
@@ -156,6 +160,7 @@ class BookForm extends Form
         $this->price = $this->isFree || ! filled($this->price) ? null : (float) $this->price;
         $this->currency = Str::upper($this->currency);
         $this->mediaIds = array_slice(array_values(array_unique(array_map('intval', $this->mediaIds))), 0, 1);
+        $this->audioSampleMediaIds = array_slice(array_values(array_unique(array_map('intval', $this->audioSampleMediaIds))), 0, 1);
 
         if ($this->status !== BookStatus::Published->value) {
             $this->isFeatured = false;
@@ -189,6 +194,8 @@ class BookForm extends Form
             'downloadUrl' => ['nullable', 'url:http,https', 'max:2048'],
             'mediaIds' => ['array', 'max:1'],
             'mediaIds.*' => ['integer', 'distinct', Rule::exists(Media::class, 'id')->withoutTrashed()],
+            'audioSampleMediaIds' => ['array', 'max:1'],
+            'audioSampleMediaIds.*' => ['integer', 'distinct', Rule::exists(Media::class, 'id')->withoutTrashed()],
             'isFeatured' => ['boolean'],
             'isFree' => ['boolean'],
             'status' => ['required', Rule::enum(BookStatus::class)],
@@ -204,13 +211,6 @@ class BookForm extends Form
             ]);
         }
 
-        $format = BookFormat::from($this->format);
-        if ($format->isDigital() && ! filled($this->downloadUrl) && ! filled($this->purchaseUrl)) {
-            throw ValidationException::withMessages([
-                'form.downloadUrl' => __('Digital books need a download or purchase URL.'),
-            ]);
-        }
-
         $media = $this->mediaIds === [] ? null : Media::find($this->mediaIds[0]);
         if ($media !== null) {
             Gate::authorize('view', $media);
@@ -220,6 +220,19 @@ class BookForm extends Form
                 || $media->status !== MediaStatus::Active) {
                 throw ValidationException::withMessages([
                     'form.mediaIds' => __('The cover must be an active, public image from the Media Library.'),
+                ]);
+            }
+        }
+
+        $audioSample = $this->audioSampleMediaIds === [] ? null : Media::find($this->audioSampleMediaIds[0]);
+        if ($audioSample !== null) {
+            Gate::authorize('view', $audioSample);
+
+            if ($audioSample->media_type !== MediaType::Audio
+                || $audioSample->visibility !== MediaVisibility::Public
+                || $audioSample->status !== MediaStatus::Active) {
+                throw ValidationException::withMessages([
+                    'form.audioSampleMediaIds' => __('The audio sample must be an active, public audio file from the Media Library.'),
                 ]);
             }
         }
@@ -267,6 +280,7 @@ class BookForm extends Form
             'purchase_url' => $this->purchaseUrl,
             'download_url' => $this->downloadUrl,
             'media_id' => $this->mediaIds[0] ?? null,
+            'audio_sample_media_id' => $this->audioSampleMediaIds[0] ?? null,
             'is_featured' => $this->isFeatured,
             'is_free' => $this->isFree,
             'status' => $this->status,

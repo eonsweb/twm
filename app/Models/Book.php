@@ -5,9 +5,13 @@ namespace App\Models;
 use App\BookAvailabilityStatus;
 use App\BookFormat;
 use App\BookStatus;
+use App\MediaStatus;
+use App\MediaType;
+use App\MediaVisibility;
 use Database\Factories\BookFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,8 +29,9 @@ use Illuminate\Support\Str;
  * @property int|null $speaker_id
  * @property string|null $short_description
  * @property string|null $download_url
- * @property string|null $purchase_url
+ * @property string $purchase_url
  * @property int|null $media_id
+ * @property int|null $audio_sample_media_id
  * @property BookFormat $format
  * @property string|null $price
  * @property string $currency
@@ -40,13 +45,14 @@ use Illuminate\Support\Str;
  * @property int|null $updated_by
  * @property Carbon|null $deleted_at
  * @property-read Media|null $cover
+ * @property-read Media|null $audioSample
  */
 #[Fillable([
     'title', 'slug', 'subtitle', 'author_name', 'leadership_id', 'speaker_id',
     'description', 'short_description', 'isbn', 'publisher', 'publication_date',
     'edition', 'language', 'page_count', 'format', 'price', 'currency',
     'stock_quantity', 'availability_status', 'purchase_url', 'download_url',
-    'media_id', 'is_featured', 'is_free', 'status', 'published_at',
+    'media_id', 'audio_sample_media_id', 'is_featured', 'is_free', 'status', 'published_at',
     'created_by', 'updated_by',
 ])]
 class Book extends Model
@@ -94,6 +100,12 @@ class Book extends Model
     public function cover(): BelongsTo
     {
         return $this->belongsTo(Media::class, 'media_id');
+    }
+
+    /** @return BelongsTo<Media, $this> */
+    public function audioSample(): BelongsTo
+    {
+        return $this->belongsTo(Media::class, 'audio_sample_media_id');
     }
 
     /** @return BelongsTo<User, $this> */
@@ -178,7 +190,38 @@ class Book extends Model
 
     public function coverUrl(): ?string
     {
-        return $this->cover?->publicUrl();
+        return $this->cover?->publicImageUrl();
+    }
+
+    /** @return Attribute<string, never> */
+    protected function purchaseUrl(): Attribute
+    {
+        return Attribute::get(fn (?string $value): string => filled($value)
+            ? $value
+            : route('public.books.show', $this));
+    }
+
+    public function isPurchaseUrlExternal(): bool
+    {
+        $purchaseHost = Str::lower((string) parse_url($this->purchase_url, PHP_URL_HOST));
+        $publicBookHost = Str::lower((string) parse_url(route('public.books.show', $this), PHP_URL_HOST));
+
+        return $purchaseHost !== '' && $purchaseHost !== $publicBookHost;
+    }
+
+    public function audioSampleUrl(): ?string
+    {
+        $audioSample = $this->audioSample;
+
+        if ($audioSample === null
+            || $audioSample->media_type !== MediaType::Audio
+            || $audioSample->visibility !== MediaVisibility::Public
+            || $audioSample->status !== MediaStatus::Active
+            || ! $audioSample->existsOnDisk()) {
+            return null;
+        }
+
+        return $audioSample->publicUrl();
     }
 
     public function displayPrice(): string

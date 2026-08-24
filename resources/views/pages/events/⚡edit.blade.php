@@ -25,8 +25,8 @@ new #[Title('Edit Event')] class extends Component
     {
         Gate::authorize('update', $event);
         abort_if($event->trashed(), 404);
-        $this->event = $event;
-        $this->form->setEvent($event);
+        $this->event = $event->load('featuredImage');
+        $this->form->setEvent($this->event);
     }
 
     #[Computed]
@@ -71,6 +71,13 @@ new #[Title('Edit Event')] class extends Component
         $this->persist($saveEvent);
     }
 
+    public function removeEventImage(): void
+    {
+        $this->form->featuredImageIds = [];
+        $this->form->featuredImage = null;
+        $this->form->removeFeaturedImage = true;
+    }
+
     private function persist(SaveEvent $saveEvent): void
     {
         if ($this->form->status === EventStatus::Published->value && $this->form->publishedAt === '') {
@@ -111,12 +118,23 @@ new #[Title('Edit Event')] class extends Component
         </x-slot:actions>
     </x-admin.page-header>
 
-    <form wire:submit="save" class="space-y-6">
+    <form wire:submit="save" class="space-y-6" data-event-edit-form>
+        @if ($errors->any())
+            <flux:callout variant="danger" icon="exclamation-triangle" heading="{{ __('Event could not be updated') }}">
+                {{ __('Review the highlighted fields and try again.') }}
+            </flux:callout>
+        @endif
         <x-admin.event-form :form="$form" :event-types="$this->eventTypes" :ministries="$this->ministries" :current-image-url="$event->imageUrl()" />
         <div class="sticky bottom-4 z-20 flex flex-wrap justify-end gap-3 rounded-xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
+            @if ($errors->any())
+                <p class="me-auto self-center text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{{ __('Please correct the highlighted fields.') }}</p>
+            @endif
             <flux:button :href="route('events.index')" variant="ghost" wire:navigate>{{ __('Cancel') }}</flux:button>
-            <flux:button type="button" wire:click="saveDraft" wire:loading.attr="disabled">{{ __('Save as draft') }}</flux:button>
-            <flux:button type="submit" variant="primary" icon="check" wire:loading.attr="disabled">{{ __('Update event') }}</flux:button>
+            <flux:button type="button" wire:click="saveDraft" wire:loading.attr="disabled" wire:target="saveDraft">{{ __('Save as draft') }}</flux:button>
+            <flux:button type="submit" variant="primary" icon="check" wire:loading.attr="disabled" wire:target="save">
+                <span wire:loading.remove wire:target="save">{{ __('Update event') }}</span>
+                <span wire:loading wire:target="save">{{ __('Updating...') }}</span>
+            </flux:button>
         </div>
     </form>
 </div>

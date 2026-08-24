@@ -1,3 +1,45 @@
+import Swiper from 'swiper';
+import { Navigation } from 'swiper/modules';
+
+import 'swiper/css';
+import 'swiper/css/navigation';
+
+const initializeMinistriesSwipers = () => {
+    document.querySelectorAll('[data-ministries-swiper]').forEach((slider) => {
+        slider.swiper?.destroy(true, true);
+
+        const section = slider.closest('[data-ministries-section]');
+
+        if (! section) {
+            return;
+        }
+
+        new Swiper(slider, {
+            modules: [Navigation],
+            slidesPerView: 1.15,
+            spaceBetween: 12,
+            grabCursor: true,
+            watchOverflow: true,
+            loop: false,
+            speed: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 450,
+            navigation: {
+                nextEl: section.querySelector('[data-ministries-next]'),
+                prevEl: section.querySelector('[data-ministries-prev]'),
+            },
+            breakpoints: {
+                480: { slidesPerView: 1.5, spaceBetween: 14 },
+                640: { slidesPerView: 2.2, spaceBetween: 16 },
+                768: { slidesPerView: 3, spaceBetween: 18 },
+                1024: { slidesPerView: 4, spaceBetween: 20 },
+                1280: { slidesPerView: 5, spaceBetween: 20 },
+                1536: { slidesPerView: 6, spaceBetween: 22 },
+            },
+        });
+    });
+};
+
+document.addEventListener('livewire:navigated', initializeMinistriesSwipers);
+
 document.addEventListener('alpine:init', () => {
     window.Alpine.data('navbar', () => ({
         open: false,

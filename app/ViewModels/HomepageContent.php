@@ -129,10 +129,10 @@ class HomepageContent
     private function ministries(): Collection
     {
         return Ministry::query()
+            ->active()
             ->published()
             ->orderByDesc('is_featured')
             ->ordered()
-            ->limit(7)
             ->get(['id', 'name', 'slug', 'short_description', 'featured_image', 'logo', 'is_featured', 'display_order']);
     }
 
@@ -140,13 +140,17 @@ class HomepageContent
     {
         return Book::query()
             ->published()
+            ->featured()
             ->available()
-            ->with('cover:id,disk,path,visibility,alt_text,width,height')
-            ->orderByDesc('is_featured')
+            ->with([
+                'cover:id,disk,path,media_type,visibility,status,alt_text,width,height',
+                'audioSample:id,disk,path,mime_type,media_type,visibility,status',
+            ])
             ->latest('published_at')
             ->first([
                 'id', 'title', 'slug', 'author_name', 'short_description', 'price', 'currency',
-                'purchase_url', 'download_url', 'media_id', 'is_featured', 'is_free', 'availability_status',
+                'purchase_url', 'download_url', 'media_id', 'audio_sample_media_id', 'is_featured',
+                'is_free', 'availability_status',
             ]);
     }
 

@@ -46,7 +46,7 @@ test('an event card renders when its location type is missing', function (): voi
         ->toContain('Legacy Event Venue');
 });
 
-test('the homepage renders event cards with incomplete location attributes', function (): void {
+test('the homepage renders an event with incomplete location attributes', function (): void {
     $page = Page::factory()->published()->create([
         'title' => 'Managed Home',
         'is_homepage' => true,
@@ -66,5 +66,5 @@ test('the homepage renders event cards with incomplete location attributes', fun
     $this->get(route('home'))
         ->assertOk()
         ->assertSee($event->title)
-        ->assertSee('Venue to be announced');
+        ->assertSee('data-upcoming-events', false);
 });

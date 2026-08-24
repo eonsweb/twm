@@ -38,6 +38,7 @@ class BookFactory extends Factory
             'availability_status' => BookAvailabilityStatus::Available,
             'purchase_url' => fake()->url(),
             'download_url' => null,
+            'audio_sample_media_id' => null,
             'is_featured' => false,
             'is_free' => false,
             'status' => BookStatus::Draft,

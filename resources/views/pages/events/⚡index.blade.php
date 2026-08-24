@@ -117,10 +117,18 @@ new #[Title('Events')] class extends Component
 
     public function confirm(int $eventId, string $action): void
     {
-        $event = Event::withTrashed()->findOrFail($eventId);
+        $event = $this->findEventForAction($eventId, $action);
+
+        if ($event === null) {
+            $this->handleStaleTarget();
+
+            return;
+        }
+
         $ability = match ($action) {
             'delete' => 'delete',
             'restore' => 'restore',
+            'force-delete' => 'forceDelete',
             'duplicate' => 'duplicate',
             'publish', 'unpublish' => 'publish',
             'cancel' => 'cancel',
@@ -138,12 +146,20 @@ new #[Title('Events')] class extends Component
         DuplicateEvent $duplicateEvent,
         ChangeEventStatus $changeStatus,
     ): void {
-        $event = Event::withTrashed()->findOrFail($this->targetEventId);
+        $event = $this->findEventForAction($this->targetEventId, $this->pendingAction);
+
+        if ($event === null) {
+            $this->handleStaleTarget();
+
+            return;
+        }
+
         $actor = Auth::user();
 
         match ($this->pendingAction) {
             'delete' => $deleteEvent->delete($actor, $event),
             'restore' => $deleteEvent->restore($actor, $event),
+            'force-delete' => $deleteEvent->forceDelete($actor, $event),
             'duplicate' => $duplicateEvent->handle($actor, $event),
             'publish' => $changeStatus->publish($actor, $event),
             'unpublish' => $changeStatus->unpublish($actor, $event),
@@ -157,11 +173,36 @@ new #[Title('Events')] class extends Component
             'cancel' => __('Event cancelled successfully.'),
             'delete' => __('Event deleted successfully.'),
             'restore' => __('Event restored successfully.'),
+            'force-delete' => __('Event permanently deleted.'),
             default => __('Event action completed successfully.'),
         };
+        $this->resetConfirmation();
+        Flux::toast(variant: 'success', text: $message);
+    }
+
+    private function findEventForAction(?int $eventId, string $action): ?Event
+    {
+        if ($eventId === null) {
+            return null;
+        }
+
+        return match ($action) {
+            'restore', 'force-delete' => Event::onlyTrashed()->find($eventId),
+            'delete', 'duplicate', 'publish', 'unpublish', 'cancel', 'complete' => Event::query()->find($eventId),
+            default => null,
+        };
+    }
+
+    private function handleStaleTarget(): void
+    {
+        $this->resetConfirmation();
+        Flux::toast(variant: 'warning', text: __('This event is no longer available for that action.'));
+    }
+
+    private function resetConfirmation(): void
+    {
         $this->reset(['showConfirmModal', 'targetEventId', 'pendingAction']);
         unset($this->events, $this->stats);
-        Flux::toast(variant: 'success', text: $message);
     }
 };
 ?>
@@ -270,10 +311,23 @@ new #[Title('Events')] class extends Component
         </div>
     </section>
 
+    @php($isPermanentDelete = $pendingAction === 'force-delete')
     <flux:modal wire:model="showConfirmModal" class="max-w-lg">
         <form wire:submit="executeConfirmed" class="space-y-6">
-            <div><flux:heading size="lg">{{ __('Confirm event action') }}</flux:heading><flux:text class="mt-2">{{ __('This state-changing action will be recorded in the activity log.') }}</flux:text></div>
-            <div class="flex justify-end gap-3"><flux:button type="button" variant="ghost" wire:click="$set('showConfirmModal', false)">{{ __('Cancel') }}</flux:button><flux:button type="submit" variant="primary" wire:loading.attr="disabled">{{ __('Confirm') }}</flux:button></div>
+            <div>
+                <flux:heading size="lg">{{ $isPermanentDelete ? __('Permanently delete this event?') : __('Confirm event action') }}</flux:heading>
+                <flux:text class="mt-2">
+                    {{ $isPermanentDelete
+                        ? __('This action cannot be undone. The event and any Event-owned image will be permanently removed. Shared Media Library assets will be retained.')
+                        : __('This state-changing action will be recorded in the activity log.') }}
+                </flux:text>
+            </div>
+            <div class="flex justify-end gap-3">
+                <flux:button type="button" variant="ghost" wire:click="$set('showConfirmModal', false)">{{ __('Cancel') }}</flux:button>
+                <flux:button type="submit" :variant="$isPermanentDelete ? 'danger' : 'primary'" wire:loading.attr="disabled" wire:target="executeConfirmed">
+                    {{ $isPermanentDelete ? __('Delete Permanently') : __('Confirm') }}
+                </flux:button>
+            </div>
         </form>
     </flux:modal>
 </div>

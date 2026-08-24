@@ -49,15 +49,15 @@ new #[Layout('layouts.public'), Title('Books')] class extends Component
 };
 ?>
 
-<main>
+<div>
     <section class="bg-church-maroon-950 text-white">
-        <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl px-4 pb-16 pt-28 sm:px-6 sm:pb-20 sm:pt-32 lg:px-8 lg:pt-36">
             <p class="font-semibold text-church-gold-400">{{ __('Resources for growth') }}</p>
             <h1 class="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">{{ __('Books') }}</h1>
             <p class="mt-4 max-w-3xl text-lg text-white/75">{{ __('Explore books from our ministry, leaders, speakers, and guest authors.') }}</p>
         </div>
     </section>
-    <div class="mx-auto max-w-7xl space-y-10 px-4 py-14 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-7xl space-y-10 bg-white px-4 py-14 text-zinc-950 sm:px-6 lg:px-8">
         <livewire:featured-book />
         <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -81,4 +81,4 @@ new #[Layout('layouts.public'), Title('Books')] class extends Component
         </section>
         @if ($this->books->hasPages())<div>{{ $this->books->links() }}</div>@endif
     </div>
-</main>
+</div>

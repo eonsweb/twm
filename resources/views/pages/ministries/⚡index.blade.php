@@ -108,28 +108,40 @@ new #[Title('Ministries')] class extends Component
                 <thead class="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-zinc-800/60 dark:text-zinc-400"><tr><th class="px-6 py-3">{{ __('Ministry') }}</th><th class="px-4 py-3">{{ __('Primary leader') }}</th><th class="px-4 py-3">{{ __('Meeting') }}</th><th class="px-4 py-3">{{ __('Events') }}</th><th class="px-4 py-3">{{ __('Status') }}</th><th class="px-4 py-3">{{ __('Order') }}</th><th class="px-4 py-3">{{ __('Updated') }}</th><th class="px-6 py-3 text-right">{{ __('Actions') }}</th></tr></thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-zinc-800">
                 @forelse ($this->ministries as $ministry)
-                    @php($primary = $ministry->leaders->firstWhere('pivot.is_primary', true) ?? $ministry->leaders->first())
+                    @php
+                        $primary = $ministry->leaders->firstWhere('pivot.is_primary', true) ?? $ministry->leaders->first();
+                        $statusAction = $ministry->status === MinistryStatus::Published ? 'draft' : 'publish';
+                        $actionLabels = [
+                            'view' => __('View ministry'),
+                            'edit' => __('Edit ministry'),
+                            'status' => $ministry->status === MinistryStatus::Published ? __('Unpublish ministry') : __('Publish ministry'),
+                            'feature' => $ministry->is_featured ? __('Remove from featured') : __('Mark as featured'),
+                            'delete' => __('Delete ministry'),
+                            'restore' => __('Restore ministry'),
+                            'forceDelete' => __('Permanently delete ministry'),
+                        ];
+                    @endphp
                     <tr wire:key="ministry-{{ $ministry->id }}"><td class="px-6 py-4"><div class="flex items-center gap-3">@if ($ministry->logoUrl() || $ministry->imageUrl())<img src="{{ $ministry->logoUrl() ?? $ministry->imageUrl() }}" alt="" class="size-10 rounded-lg object-cover">@endif<div><p class="font-semibold">{{ $ministry->name }}</p>@if ($ministry->is_featured)<flux:badge color="amber" size="sm">{{ __('Featured') }}</flux:badge>@endif</div></div></td><td class="px-4 py-4">{{ $primary?->full_name ?? __('Unassigned') }}</td><td class="px-4 py-4">{{ collect([$ministry->meeting_day, $ministry->meeting_time?->format('g:i A')])->filter()->implode(' · ') ?: __('Not set') }}</td><td class="px-4 py-4">{{ $ministry->events_count }}</td><td class="px-4 py-4"><flux:badge :color="$ministry->status === MinistryStatus::Published ? 'green' : ($ministry->status === MinistryStatus::Inactive ? 'red' : 'zinc')">{{ $ministry->trashed() ? __('Deleted') : $ministry->status->label() }}</flux:badge></td><td class="px-4 py-4">{{ $ministry->display_order }}</td><td class="px-4 py-4">{{ $ministry->updated_at->diffForHumans() }}</td>
                     <td class="px-6 py-4">
                         <div class="flex justify-end gap-2">
                             @if (! $ministry->trashed())
-                                <flux:button size="sm" :href="route('ministries.show', $ministry)" icon="eye" wire:navigate />
-                                <flux:button size="sm" :href="route('ministries.edit', $ministry)" icon="pencil-square" wire:navigate />
+                                <flux:button size="sm" :href="route('ministries.show', $ministry)" icon="eye" wire:navigate :tooltip="$actionLabels['view']" :aria-label="$actionLabels['view']" />
+                                <flux:button size="sm" :href="route('ministries.edit', $ministry)" icon="pencil-square" wire:navigate :tooltip="$actionLabels['edit']" :aria-label="$actionLabels['edit']" />
                                 @can('publish', $ministry)
-                                    <flux:button size="sm" icon="globe-alt" wire:click="confirm({{ $ministry->id }}, '{{ $ministry->status === MinistryStatus::Published ? 'draft' : 'publish' }}')" />
+                                    <flux:button size="sm" icon="globe-alt" wire:click="confirm({{ $ministry->id }}, '{{ $statusAction }}')" :tooltip="$actionLabels['status']" :aria-label="$actionLabels['status']" />
                                 @endcan
                                 @can('feature', $ministry)
-                                    <flux:button size="sm" icon="star" wire:click="confirm({{ $ministry->id }}, 'feature')" />
+                                    <flux:button size="sm" icon="star" wire:click="confirm({{ $ministry->id }}, 'feature')" :tooltip="$actionLabels['feature']" :aria-label="$actionLabels['feature']" />
                                 @endcan
                                 @can('delete', $ministry)
-                                    <flux:button size="sm" variant="danger" icon="trash" wire:click="confirm({{ $ministry->id }}, 'delete')" />
+                                    <flux:button size="sm" variant="danger" icon="trash" wire:click="confirm({{ $ministry->id }}, 'delete')" :tooltip="$actionLabels['delete']" :aria-label="$actionLabels['delete']" />
                                 @endcan
                             @else
                                 @can('restore', $ministry)
-                                    <flux:button size="sm" icon="arrow-path" wire:click="confirm({{ $ministry->id }}, 'restore')" />
+                                    <flux:button size="sm" icon="arrow-path" wire:click="confirm({{ $ministry->id }}, 'restore')" :tooltip="$actionLabels['restore']" :aria-label="$actionLabels['restore']" />
                                 @endcan
                                 @can('forceDelete', $ministry)
-                                    <flux:button size="sm" variant="danger" icon="trash" wire:click="confirm({{ $ministry->id }}, 'force-delete')" />
+                                    <flux:button size="sm" variant="danger" icon="trash" wire:click="confirm({{ $ministry->id }}, 'force-delete')" :tooltip="$actionLabels['forceDelete']" :aria-label="$actionLabels['forceDelete']" />
                                 @endcan
                             @endif
                         </div>

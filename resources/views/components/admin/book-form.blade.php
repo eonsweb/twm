@@ -52,13 +52,29 @@
             <flux:text class="mt-1">{{ __('Choose an active public image from the Media Library, or upload one there without duplicating file storage.') }}</flux:text>
             <div class="mt-5">
                 <livewire:media-picker
-                    wire:model="form.mediaIds"
+                    wire:model.deep="form.mediaIds"
                     :allowed-types="[\App\MediaType::Image->value]"
                     :multiple="false"
                     :maximum="1"
                     collection="book-cover"
                 />
                 <flux:error name="form.mediaIds" />
+            </div>
+        </section>
+
+        <section class="rounded-xl border border-slate-200/80 bg-white p-5 shadow-admin-panel dark:border-zinc-800 dark:bg-zinc-900">
+            <flux:heading size="lg">{{ __('Book audio sample') }}</flux:heading>
+            <flux:text class="mt-1">{{ __('Optionally choose one active public audio file from the Media Library for visitors to preview.') }}</flux:text>
+            <div class="mt-5">
+                <livewire:media-picker
+                    wire:model.deep="form.audioSampleMediaIds"
+                    :allowed-types="[\App\MediaType::Audio->value]"
+                    :multiple="false"
+                    :maximum="1"
+                    collection="book-audio-sample"
+                />
+                <flux:error name="form.audioSampleMediaIds" />
+                <flux:error name="form.audioSampleMediaIds.*" />
             </div>
         </section>
     </div>
@@ -102,7 +118,12 @@
                     <flux:input wire:model="form.price" :label="__('Price')" type="number" min="0" step="0.01" :disabled="$form->isFree" />
                     <flux:input wire:model="form.currency" :label="__('Currency')" maxlength="3" required />
                 </div>
-                <flux:input wire:model="form.purchaseUrl" :label="__('Purchase URL')" type="url" />
+                <flux:field>
+                    <flux:label>{{ __('Purchase URL (Optional)') }}</flux:label>
+                    <flux:input wire:model="form.purchaseUrl" type="url" />
+                    <flux:description>{{ __("Leave blank to use the book's public page automatically.") }}</flux:description>
+                    <flux:error name="form.purchaseUrl" />
+                </flux:field>
                 <flux:input wire:model="form.downloadUrl" :label="__('Download URL')" type="url" />
             </div>
         </section>

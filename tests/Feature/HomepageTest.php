@@ -1,18 +1,23 @@
 <?php
 
+use App\MediaType;
 use App\Models\Book;
 use App\Models\Event;
+use App\Models\EventType;
 use App\Models\LeadershipAssignment;
+use App\Models\Media;
 use App\Models\Ministry;
 use App\Models\Page;
 use App\Models\PageSection;
 use App\Models\Person;
 use App\Models\Sermon;
 use App\Pages\HomepageSectionSynchronizer;
+use App\Pages\SectionDataResolver;
 use App\Sermons\ExternalMedia;
 use App\Settings\SettingManager;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function (): void {
     app(SettingManager::class)->initializeDefaults();
@@ -28,6 +33,36 @@ test('the public homepage renders its shared layout and primary calls to action'
         ->assertSee('welcome-upcoming-event')
         ->assertSee('application/ld+json', false);
 });
+
+test('the public layout keeps the fixed navbar outside a neutral main element', function (): void {
+    $response = $this->get(route('home'))->assertOk();
+    $html = $response->getContent();
+
+    expect($html)
+        ->toContain('<main id="public-main">')
+        ->not->toContain('<main id="public-main" class="bg-gray-900')
+        ->and(strpos($html, 'x-data="navbar"'))->toBeLessThan(strpos($html, '<main id="public-main">'));
+
+    $response
+        ->assertSee('fixed top-0 left-0 z-50', false)
+        ->assertSee("isScrolled ? 'bg-gray-900/95 shadow-lg' : 'bg-transparent'", false)
+        ->assertSee('backdrop-blur-[4px]', false);
+});
+
+test('public index pages render a maroon overlay hero above white content', function (string $routeName): void {
+    $this->get(route($routeName))
+        ->assertOk()
+        ->assertSee('bg-church-maroon-950', false)
+        ->assertSee('pt-28', false)
+        ->assertSee('bg-white', false);
+})->with([
+    'sermons' => 'public.sermons.index',
+    'books' => 'public.books.index',
+    'events' => 'public.events.index',
+    'ministries' => 'public.ministries.index',
+    'give' => 'public.give',
+    'contact' => 'public.contact',
+]);
 
 test('the latest publicly available sermon is shown while drafts are excluded', function (): void {
     Sermon::factory()->published()->create(['title' => 'Older Published Message', 'sermon_date' => now()->subWeek()]);
@@ -165,6 +200,112 @@ test('upcoming published events are ordered and past events are excluded', funct
         ->assertDontSee('Draft Gathering');
 });
 
+test('the managed upcoming events section features one event and shows the next three', function (): void {
+    Storage::fake('public');
+    $page = Page::factory()->published()->create(['title' => 'Managed Home', 'is_homepage' => true]);
+    $section = PageSection::factory()->for($page)->create([
+        'name' => 'Upcoming events',
+        'section_type' => 'upcoming-events',
+        'heading' => 'Upcoming Events',
+        'content' => null,
+        'settings' => ['limit' => 24],
+    ]);
+    $eventType = EventType::factory()->create(['name' => 'Special Church Event', 'slug' => 'special-church-event']);
+    $featuredImage = Media::factory()->create();
+    Storage::disk($featuredImage->disk)->put($featuredImage->path, 'featured event artwork');
+    $featured = Event::factory()->for($eventType)->published()->featured()->create([
+        'title' => 'Pastors Appreciation',
+        'short_description' => 'Join us for a special celebration honouring our church leadership.',
+        'featured_image_id' => $featuredImage->id,
+        'starts_at' => now()->addDays(10)->setTime(18, 0),
+        'ends_at' => now()->addDays(10)->setTime(20, 0),
+    ]);
+    $soonest = Event::factory()->for($eventType)->published()->create([
+        'title' => 'Prayer Gathering',
+        'starts_at' => now()->addDay()->setTime(10, 0),
+        'ends_at' => now()->addDay()->setTime(12, 0),
+    ]);
+    $allDay = Event::factory()->for($eventType)->published()->create([
+        'title' => 'Community Outreach',
+        'is_all_day' => true,
+        'starts_at' => now()->addDays(2)->startOfDay(),
+        'ends_at' => now()->addDays(2)->endOfDay(),
+    ]);
+    $third = Event::factory()->published()->create([
+        'title' => 'Youth Conference',
+        'starts_at' => now()->addDays(3)->setTime(9, 0),
+        'ends_at' => null,
+    ]);
+    Event::factory()->published()->create([
+        'title' => 'Fifth Upcoming Event',
+        'starts_at' => now()->addDays(4),
+        'ends_at' => now()->addDays(4)->addHour(),
+    ]);
+    Event::factory()->published()->past()->create(['title' => 'Expired Church Event']);
+    Event::factory()->create(['title' => 'Draft Church Event', 'starts_at' => now()->addHours(2)]);
+
+    $resolvedEvents = app(SectionDataResolver::class)->resolve($section)['items'];
+
+    expect($featured->fresh()->is_featured)->toBeTrue()
+        ->and($resolvedEvents->pluck('id')->all())->toBe([
+            $featured->id,
+            $soonest->id,
+            $allDay->id,
+            $third->id,
+        ]);
+
+    $response = $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('data-upcoming-events', false)
+        ->assertSee('bg-church-green-900', false)
+        ->assertSee('lg:grid-cols-2', false)
+        ->assertSee($featured->imageUrl(), false)
+        ->assertSee($featured->short_description)
+        ->assertSee('Special Church Event')
+        ->assertSee('10:00 AM – 12:00 PM')
+        ->assertSee('All Day')
+        ->assertSeeInOrder([$featured->title, $soonest->title, $allDay->title, $third->title])
+        ->assertDontSee('Fifth Upcoming Event')
+        ->assertDontSee('Expired Church Event')
+        ->assertDontSee('Draft Church Event')
+        ->assertSee(route('public.events.show', $featured), false)
+        ->assertSee(route('public.events.show', $soonest), false)
+        ->assertSee(route('public.events.index'), false)
+        ->assertSee('View More Events')
+        ->assertSee('focus-visible:outline-2', false);
+
+    expect(substr_count($response->getContent(), 'data-upcoming-event-item'))->toBe(3);
+});
+
+test('the managed upcoming events section handles one event and an empty state', function (): void {
+    $page = Page::factory()->published()->create(['title' => 'Managed Home', 'is_homepage' => true]);
+    PageSection::factory()->for($page)->create([
+        'name' => 'Upcoming events',
+        'section_type' => 'upcoming-events',
+        'heading' => 'Upcoming Events',
+        'content' => null,
+    ]);
+    $event = Event::factory()->published()->create([
+        'title' => 'Only Upcoming Event',
+        'featured_image' => null,
+        'featured_image_id' => null,
+    ]);
+
+    $response = $this->get(route('home'))
+        ->assertOk()
+        ->assertSee($event->title)
+        ->assertSee('data-event-image-fallback', false);
+
+    expect(substr_count($response->getContent(), 'data-upcoming-event-item'))->toBe(0);
+
+    $event->delete();
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('No upcoming events at this time.')
+        ->assertSee(route('public.events.index'), false);
+});
+
 test('the first-class welcome section follows service times in the managed section order', function (): void {
     $page = Page::factory()->published()->create(['title' => 'Managed Home', 'is_homepage' => true]);
     PageSection::factory()->for($page)->create(['name' => 'Service times', 'section_type' => 'service-times', 'heading' => 'Join Us This Week', 'sort_order' => 20]);
@@ -177,14 +318,37 @@ test('the first-class welcome section follows service times in the managed secti
         ->assertSeeInOrder(['Join Us This Week', 'Welcome Home!', 'Legacy Sermons', 'Legacy Events']);
 });
 
-test('published ministries are shown and scheduled ministries are excluded', function (): void {
-    Ministry::factory()->published()->create(['name' => 'Prayer Ministry', 'slug' => 'prayer-ministry']);
+test('the ministries carousel shows every published ministry in display order', function (): void {
+    $featured = Ministry::factory()->published()->featured()->create([
+        'name' => 'Featured Ministry',
+        'slug' => 'featured-ministry',
+        'display_order' => 99,
+        'featured_image' => 'ministries/featured.jpg',
+    ]);
+    $orderedMinistries = collect(range(1, 8))->map(fn (int $position): Ministry => Ministry::factory()->published()->create([
+        'name' => "Ministry {$position}",
+        'slug' => "ministry-{$position}",
+        'display_order' => $position,
+    ]));
     Ministry::factory()->scheduled()->create(['name' => 'Hidden Ministry', 'slug' => 'hidden-ministry']);
+    Ministry::factory()->inactive()->create(['name' => 'Inactive Ministry', 'slug' => 'inactive-ministry']);
 
-    $this->get(route('home'))
+    $response = $this->get(route('home'))
         ->assertOk()
-        ->assertSee('Prayer Ministry')
-        ->assertDontSee('Hidden Ministry');
+        ->assertSee('data-ministries-section', false)
+        ->assertSee('swiper ministries-swiper', false)
+        ->assertSee('swiper-wrapper', false)
+        ->assertSee('swiper-slide h-auto', false)
+        ->assertSee('data-ministries-prev', false)
+        ->assertSee('data-ministries-next', false)
+        ->assertSee('data-ministry-image-fallback', false)
+        ->assertSee('decoding="async"', false)
+        ->assertSee(route('public.ministries.show', $featured), false)
+        ->assertSeeInOrder([$featured->name, ...$orderedMinistries->pluck('name')->all()])
+        ->assertDontSee('Hidden Ministry')
+        ->assertDontSee('Inactive Ministry');
+
+    expect(substr_count($response->getContent(), 'swiper-slide h-auto'))->toBe(9);
 });
 
 test('the administrator-selected public leader is used for the welcome section', function (): void {
@@ -210,6 +374,144 @@ test('the featured available book is displayed', function (): void {
         ->assertOk()
         ->assertSee('Grace Upon Grace')
         ->assertDontSee('Regular Resource');
+});
+
+test('the featured book section renders its media purchase link audio sample and books route', function (): void {
+    Storage::fake('public');
+    $cover = Media::factory()->create([
+        'name' => 'Editorial Book Cover',
+        'alt_text' => 'A gold and green book cover',
+        'path' => 'media/images/featured-book.jpg',
+    ]);
+    $audio = Media::factory()->create([
+        'name' => 'Featured Book Preview',
+        'media_type' => MediaType::Audio,
+        'mime_type' => 'audio/mpeg',
+        'extension' => 'mp3',
+        'path' => 'media/audio/featured-book-preview.mp3',
+    ]);
+    Storage::disk('public')->put($cover->path, 'cover');
+    Storage::disk('public')->put($audio->path, 'audio');
+    $book = Book::factory()->published()->featured()->create([
+        'title' => 'Grace for the Journey',
+        'short_description' => 'A concise guide to walking faithfully through every season of life.',
+        'purchase_url' => 'https://books.example.test/grace-for-the-journey',
+        'media_id' => $cover->id,
+        'audio_sample_media_id' => $audio->id,
+    ]);
+
+    $response = $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('data-featured-book', false)
+        ->assertSee($book->title)
+        ->assertSee($book->short_description)
+        ->assertSee($cover->publicImageUrl(), false)
+        ->assertSee('A gold and green book cover')
+        ->assertSee('Get Your Copy Now')
+        ->assertSee($book->purchase_url, false)
+        ->assertSee('rel="noopener noreferrer"', false)
+        ->assertSee("Book's Audio Sample")
+        ->assertSee('data-featured-book-actions', false)
+        ->assertSee('flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:flex-nowrap lg:items-center', false)
+        ->assertSee('x-on:click="showAudio = ! showAudio"', false)
+        ->assertSee('x-show="showAudio"', false)
+        ->assertSee('data-featured-book-audio-icon', false)
+        ->assertSee('<audio controls preload="metadata"', false)
+        ->assertSee($audio->publicUrl(), false)
+        ->assertSee('type="audio/mpeg"', false)
+        ->assertSee('More Books')
+        ->assertSee(route('public.books.index'), false)
+        ->assertSee('lg:grid-cols-[minmax(16rem,0.75fr)_minmax(0,1.25fr)]', false);
+
+    preg_match('/<a[^>]*data-featured-book-purchase[^>]*>/', $response->getContent(), $purchaseLink);
+
+    expect($purchaseLink[0] ?? null)
+        ->toContain('target="_blank"')
+        ->toContain('rel="noopener noreferrer"')
+        ->not->toContain('wire:navigate');
+});
+
+test('the featured book section omits unavailable audio and hides without a featured book', function (): void {
+    $regularBook = Book::factory()->published()->create(['title' => 'Not Selected for Homepage']);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertDontSee('data-featured-book', false)
+        ->assertDontSee($regularBook->title);
+
+    $featuredBook = Book::factory()->published()->featured()->create([
+        'title' => 'Selected Without Audio',
+        'purchase_url' => null,
+        'download_url' => null,
+        'audio_sample_media_id' => null,
+    ]);
+
+    $response = $this->get(route('home'))
+        ->assertOk()
+        ->assertSee($featuredBook->title)
+        ->assertSee('data-featured-book-actions', false)
+        ->assertSee('Get Your Copy Now')
+        ->assertSee(route('public.books.show', $featuredBook), false)
+        ->assertDontSee('<audio', false)
+        ->assertDontSee("Book's Audio Sample");
+
+    preg_match('/<a[^>]*data-featured-book-purchase[^>]*>/', $response->getContent(), $purchaseLink);
+
+    expect($purchaseLink[0] ?? null)
+        ->toContain('wire:navigate')
+        ->not->toContain('target="_blank"')
+        ->not->toContain('rel="noopener noreferrer"');
+});
+
+test('the featured book section keeps its fallback purchase CTA with or without audio', function (): void {
+    Storage::fake('public');
+    $audio = Media::factory()->create([
+        'name' => 'Audio-only Book Preview',
+        'media_type' => MediaType::Audio,
+        'mime_type' => 'audio/mpeg',
+        'extension' => 'mp3',
+        'path' => 'media/audio/audio-only-book-preview.mp3',
+    ]);
+    Storage::disk('public')->put($audio->path, 'audio');
+    $book = Book::factory()->published()->featured()->create([
+        'title' => 'Listen Before Buying',
+        'purchase_url' => null,
+        'download_url' => null,
+        'audio_sample_media_id' => $audio->id,
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('data-featured-book-actions', false)
+        ->assertSee('Get Your Copy Now')
+        ->assertSee(route('public.books.show', $book), false)
+        ->assertSee("Book's Audio Sample")
+        ->assertSee($audio->publicUrl(), false);
+
+    $book->update(['audio_sample_media_id' => null]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee($book->title)
+        ->assertSee('data-featured-book-actions', false)
+        ->assertSee('Get Your Copy Now')
+        ->assertSee(route('public.books.show', $book), false)
+        ->assertDontSee("Book's Audio Sample")
+        ->assertDontSee('<audio', false);
+});
+
+test('managed homepages receive and render the featured book section', function (): void {
+    $page = Page::factory()->published()->create(['title' => 'Managed Home', 'is_homepage' => true]);
+    $book = Book::factory()->published()->featured()->create(['title' => 'Managed Homepage Book']);
+
+    app(HomepageSectionSynchronizer::class)->sync($page);
+
+    expect($page->sections()->where('section_type', 'featured-book')->count())->toBe(1);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('data-featured-book', false)
+        ->assertSee($book->title);
 });
 
 test('configured testimonials render safely', function (): void {
@@ -243,7 +545,8 @@ test('the homepage remains useful when all content collections are empty', funct
         ->assertSee('Service times will be announced soon')
         ->assertSee('No sermons available yet.')
         ->assertSee('No upcoming events at the moment.')
-        ->assertSee('Featured resources will be available here soon');
+        ->assertDontSee('data-ministries-section', false)
+        ->assertDontSee('data-featured-book', false);
 });
 
 test('the homepage uses a bounded number of database queries', function (): void {

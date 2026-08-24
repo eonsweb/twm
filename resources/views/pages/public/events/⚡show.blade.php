@@ -41,7 +41,7 @@ new #[Layout('layouts.public')] class extends Component
 
 <div>
     <section class="bg-church-maroon-950 text-white">
-        <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div class="mx-auto max-w-7xl px-4 pb-12 pt-28 sm:px-6 sm:pb-16 sm:pt-32 lg:px-8 lg:pt-36">
             <a href="{{ route('public.events.index') }}" class="inline-flex items-center gap-2 text-sm font-bold text-church-gold-400" wire:navigate><flux:icon.arrow-left class="size-4" />{{ __('All events') }}</a>
             <div class="mt-8 grid items-center gap-10 lg:grid-cols-2">
                 <div>
@@ -50,13 +50,13 @@ new #[Layout('layouts.public')] class extends Component
                     @if ($event->short_description)<p class="mt-5 text-lg leading-8 text-white/75">{{ $event->short_description }}</p>@endif
                 </div>
                 <div class="overflow-hidden rounded-2xl bg-church-maroon-900 shadow-2xl">
-                @if ($event->imageUrl())<img src="{{ $event->imageUrl() }}" alt="{{ $event->title }}" class="aspect-[16/9] w-full object-cover">@else<div class="flex aspect-[16/9] items-center justify-center text-church-gold-400"><flux:icon :name="$event->effectiveIcon()" class="size-20" /></div>@endif
+                @if ($eventImageUrl = $event->imageUrl())<img data-event-image src="{{ $eventImageUrl }}" alt="{{ __(':title event', ['title' => $event->title]) }}" class="aspect-[16/9] w-full object-cover">@else<div data-event-image-fallback class="flex aspect-[16/9] items-center justify-center text-church-gold-400"><flux:icon :name="$event->effectiveIcon()" class="size-20" /></div>@endif
                 </div>
             </div>
         </div>
     </section>
 
-    <main class="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:px-8">
+    <div class="mx-auto grid max-w-7xl gap-10 bg-white px-4 py-12 text-zinc-950 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:px-8">
         <article class="space-y-8">
             @if ($event->status === EventStatus::Cancelled)
                 <flux:callout variant="danger" icon="x-circle" heading="{{ __('This event has been cancelled') }}">{{ __('Please contact the church office if you need more information.') }}</flux:callout>
@@ -90,7 +90,7 @@ new #[Layout('layouts.public')] class extends Component
                 <div class="rounded-2xl border border-stone-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900"><h2 class="font-black">{{ __('Contact') }}</h2><div class="mt-3 space-y-1 text-sm text-slate-600 dark:text-zinc-300">@if ($event->contact_name)<p>{{ $event->contact_name }}</p>@endif @if ($event->contact_phone)<p><a href="tel:{{ $event->contact_phone }}">{{ $event->contact_phone }}</a></p>@endif @if ($event->contact_email)<p><a href="mailto:{{ $event->contact_email }}">{{ $event->contact_email }}</a></p>@endif</div></div>
             @endif
         </aside>
-    </main>
+    </div>
 
     @if ($this->relatedEvents->isNotEmpty())
         <section class="border-t border-stone-200 bg-white py-12 dark:border-zinc-800 dark:bg-zinc-900/40"><div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"><h2 class="text-2xl font-black">{{ __('Related upcoming events') }}</h2><div class="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">@foreach ($this->relatedEvents as $related)<x-events.card :event="$related" wire:key="related-event-{{ $related->id }}" />@endforeach</div></div></section>

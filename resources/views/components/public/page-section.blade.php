@@ -3,8 +3,11 @@
     $settings = $section->settings ?? [];
     $isServiceTimes = $section->section_type->value === 'service-times';
     $isFeaturedSermons = $section->section_type->value === 'featured-sermons';
+    $isUpcomingEvents = $section->section_type->value === 'upcoming-events';
+    $isMinistriesGrid = $section->section_type->value === 'ministries-grid';
     $isWelcome = $section->section_type->value === 'welcome';
     $isWelcomeUpcomingEvent = $section->section_type->value === 'welcome-upcoming-event';
+    $isFeaturedBook = $section->section_type->value === 'featured-book';
 @endphp
 @if($isWelcome)
     <x-public.home.welcome
@@ -20,6 +23,21 @@
         :events="$data['events'] ?? collect()"
         :section="$section"
     />
+@elseif($isUpcomingEvents)
+    <x-public.home.upcoming-events
+        :events="$data['items'] ?? collect()"
+        :section="$section"
+        :view-all-url="$data['viewAllUrl'] ?? route('public.events.index')"
+        :event-type="$data['eventType'] ?? null"
+    />
+@elseif($isMinistriesGrid)
+    <x-public.home.ministries
+        :ministries="$data['items'] ?? collect()"
+        :heading="$section->heading ?: __('Our Ministries')"
+        heading-id="section-{{ $section->id }}-heading"
+    />
+@elseif($isFeaturedBook)
+    <x-public.home.featured-book :book="$data['book'] ?? null" :section="$section" />
 @else
 <section @class(['py-8 sm:py-10' => $isServiceTimes, 'bg-stone-50/70 py-16 lg:py-24' => $isFeaturedSermons, 'py-12 sm:py-16' => ! $isServiceTimes && ! $isFeaturedSermons]) aria-labelledby="section-{{ $section->id }}-heading">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -32,25 +50,6 @@
         @switch($section->section_type->value)
             @case('hero')
                 <div class="mt-8 flex flex-wrap gap-3">@if(data_get($settings,'primary_label') && data_get($settings,'primary_url'))<a href="{{ data_get($settings,'primary_url') }}" class="rounded-lg bg-church-maroon-900 px-5 py-3 font-semibold text-white">{{ data_get($settings,'primary_label') }}</a>@endif @if(data_get($settings,'secondary_label') && data_get($settings,'secondary_url'))<a href="{{ data_get($settings,'secondary_url') }}" class="rounded-lg border border-church-maroon-900 px-5 py-3 font-semibold text-church-maroon-900">{{ data_get($settings,'secondary_label') }}</a>@endif</div>
-                @break
-            @case('upcoming-events')
-                @if(data_get($settings, 'display_style', 'cards') === 'weekly-events')
-                    <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        @forelse(($data['items'] ?? []) as $event)
-                            <a href="{{ route('public.events.show', $event) }}" wire:navigate wire:key="weekly-section-event-{{ $event->id }}" class="group rounded-2xl border border-stone-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-                                @if(data_get($settings, 'show_icon', true))<span class="flex size-11 items-center justify-center rounded-xl bg-church-maroon-950 text-church-gold-400"><flux:icon :name="$event->effectiveIcon()" class="size-6" /></span>@endif
-                                <h3 class="mt-4 font-bold text-church-maroon-950 group-hover:text-church-maroon-700">{{ $event->title }}</h3>
-                                @if(data_get($settings, 'show_day', true))<p class="mt-2 text-sm font-semibold text-slate-600">{{ collect($event->recurrence_days ?? [])->map(fn($day) => str($day)->title())->join(', ', ' & ') ?: $event->nextOccurrence()?->format('l, j M') }}</p>@endif
-                                @if(data_get($settings, 'show_time', true))<p class="mt-1 text-sm text-slate-500">{{ $event->is_all_day ? __('All day') : $event->starts_at->setTimezone($event->timezone)->format('g:i A') }}</p>@endif
-                            </a>
-                        @empty
-                            <p class="text-slate-500">{{ __('No events are available for this section yet.') }}</p>
-                        @endforelse
-                    </div>
-                @else
-                    <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">@forelse(($data['items'] ?? []) as $event)<x-events.card :event="$event" wire:key="section-event-{{ $event->id }}" />@empty<p class="text-slate-500">{{ __('No events are available for this section yet.') }}</p>@endforelse</div>
-                @endif
-                @if(data_get($settings, 'show_read_more', data_get($settings, 'show_view_all', true)))<a href="{{ $data['viewAllUrl'] ?? route('public.events.index') }}" class="mt-7 inline-flex items-center gap-2 font-bold text-church-maroon-800" wire:navigate>{{ data_get($settings, 'view_all_label', data_get($data, 'eventType') ? __('See all :type events', ['type' => data_get($data, 'eventType.name')]) : __('View all events')) }}<flux:icon.arrow-right class="size-4" /></a>@endif
                 @break
             @case('featured-sermons')
                 @php($sermon = collect($data['items'] ?? [])->first())
@@ -86,7 +85,7 @@
                     <div class="mt-8 rounded-2xl border border-dashed border-stone-300 bg-white px-6 py-10 text-center text-slate-500">{{ __('No sermons are available yet.') }}</div>
                 @endif
                 @break
-            @case('latest-posts') @case('ministries-grid') @case('leadership-grid') @case('books-grid')
+            @case('latest-posts') @case('leadership-grid') @case('books-grid')
                 <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">@forelse(($data['items'] ?? []) as $item)<article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 class="text-lg font-bold text-church-maroon-950">{{ $item->title ?? $item->name ?? $item->full_name }}</h3><p class="mt-2 line-clamp-3 text-sm text-slate-600">{{ $item->excerpt ?? $item->short_description ?? $item->summary ?? $item->description }}</p></article>@empty<p class="text-slate-500">{{ __('Nothing to show yet.') }}</p>@endforelse</div>
                 @break
             @case('service-times')

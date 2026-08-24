@@ -5,7 +5,9 @@ namespace App\Livewire\Forms;
 use App\EventLocationType;
 use App\EventScheduleType;
 use App\EventStatus;
+use App\MediaStatus;
 use App\MediaType;
+use App\MediaVisibility;
 use App\Models\Event;
 use App\Models\EventType;
 use App\Models\Media;
@@ -129,6 +131,8 @@ class EventForm extends Form
         $this->shortDescription = $event->short_description ?? '';
         $this->description = $event->description ?? '';
         $this->featuredImageIds = $event->featured_image_id === null ? [] : [$event->featured_image_id];
+        $this->featuredImage = null;
+        $this->removeFeaturedImage = false;
         $this->icon = $event->icon ?? '';
         $this->startDate = $start->toDateString();
         $this->startTime = $start->format('H:i');
@@ -175,6 +179,7 @@ class EventForm extends Form
         $this->slug = filled($this->slug) ? Str::slug($this->slug) : '';
         $this->eventTypeId = filled($this->eventTypeId) ? (int) $this->eventTypeId : null;
         $this->ministryId = filled($this->ministryId) ? (int) $this->ministryId : null;
+        $this->featuredImageIds = array_slice(array_values(array_unique(array_map('intval', $this->featuredImageIds))), 0, 1);
         $this->maximumAttendees = filled($this->maximumAttendees) ? (int) $this->maximumAttendees : null;
         $this->recurrenceInterval = max(1, (int) $this->recurrenceInterval);
         $this->recurrenceMonth = filled($this->recurrenceMonth) ? (int) $this->recurrenceMonth : null;
@@ -217,7 +222,15 @@ class EventForm extends Form
             'description' => ['nullable', 'string', 'max:100000'],
             'featuredImage' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp', 'max:5120'],
             'featuredImageIds' => ['array', 'max:1'],
-            'featuredImageIds.*' => ['integer', 'distinct', Rule::exists(Media::class, 'id')->where('media_type', MediaType::Image->value)],
+            'featuredImageIds.*' => [
+                'integer',
+                'distinct',
+                Rule::exists(Media::class, 'id')
+                    ->where('media_type', MediaType::Image->value)
+                    ->where('visibility', MediaVisibility::Public->value)
+                    ->where('status', MediaStatus::Active->value)
+                    ->whereNull('deleted_at'),
+            ],
             'removeFeaturedImage' => ['boolean'],
             'icon' => ['nullable', Rule::in(EventIcons::values())],
             'startDate' => ['required', 'date'],

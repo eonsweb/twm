@@ -65,7 +65,7 @@
                         <div class="sm:col-span-2"><flux:input wire:model="form.leaders.{{ $index }}.display_order" :label="__('Order')" type="number" min="0" /></div>
                         <div class="flex items-end gap-3 sm:col-span-2">
                             <flux:checkbox wire:model="form.leaders.{{ $index }}.is_primary" :label="__('Primary')" />
-                            <flux:button type="button" variant="danger" icon="trash" wire:click="form.removeLeader({{ $index }})" aria-label="{{ __('Remove leader') }}" />
+                            <flux:button type="button" variant="danger" icon="trash" wire:click="form.removeLeader({{ $index }})" :tooltip="__('Remove leader')" :aria-label="__('Remove leader')" />
                         </div>
                     </div>
                 @endforeach

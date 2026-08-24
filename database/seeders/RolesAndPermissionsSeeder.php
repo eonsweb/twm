@@ -87,6 +87,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 PermissionName::EventsUpdate,
                 PermissionName::EventsDelete,
                 PermissionName::EventsRestore,
+                PermissionName::EventsForceDelete,
                 PermissionName::EventsPublish,
                 PermissionName::EventsCancel,
                 PermissionName::EventTypesView,

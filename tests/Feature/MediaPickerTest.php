@@ -5,6 +5,8 @@ use App\MediaVisibility;
 use App\Models\Media;
 use App\Models\User;
 use App\PermissionName;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 
@@ -73,4 +75,22 @@ test('existing media picker selections are displayed and can be removed', functi
         ->assertSee($media->name)
         ->call('remove', $media->id)
         ->assertSet('mediaIds', []);
+});
+
+test('the media picker upload action works without rendering a nested form', function (): void {
+    Storage::fake('public');
+    $user = pickerUser(PermissionName::MediaView, PermissionName::MediaCreate);
+
+    Livewire::actingAs($user)
+        ->test('media-picker', ['allowedTypes' => [MediaType::Image->value]])
+        ->assertSee('wire:click="uploadNew"', false)
+        ->assertDontSee('wire:submit="uploadNew"', false)
+        ->set('upload', UploadedFile::fake()->image('event-artwork.jpg'))
+        ->call('uploadNew')
+        ->assertCount('pending', 1)
+        ->call('confirm')
+        ->assertCount('mediaIds', 1);
+
+    $media = Media::query()->sole();
+    Storage::disk($media->disk)->assertExists($media->path);
 });

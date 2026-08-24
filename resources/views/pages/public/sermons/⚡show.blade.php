@@ -59,10 +59,10 @@ new #[Layout('layouts.public')] class extends Component
 @endpush
 
 <article>
-    <header class="bg-church-maroon-950 py-12 text-white">
-        <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"><a href="{{ route('public.sermons.index') }}" class="text-sm font-semibold text-church-gold-400" wire:navigate>&larr; {{ __('All sermons') }}</a><div class="mt-6 text-sm text-white/70"><time>{{ $sermon->sermon_date->format('F j, Y') }}</time></div><h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{{ $sermon->title }}</h1><a href="{{ route('public.speakers.show', $sermon->speaker) }}" class="mt-4 inline-flex items-center gap-3 font-semibold text-church-gold-400" wire:navigate>@if ($sermon->speaker->photo_path)<img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($sermon->speaker->photo_path) }}" alt="" class="size-10 rounded-full object-cover">@endif{{ $sermon->speaker->full_name }}</a></div>
+    <header class="bg-church-maroon-950 text-white">
+        <div class="mx-auto max-w-5xl px-4 pb-12 pt-28 sm:px-6 sm:pt-32 lg:px-8 lg:pt-36"><a href="{{ route('public.sermons.index') }}" class="text-sm font-semibold text-church-gold-400" wire:navigate>&larr; {{ __('All sermons') }}</a><div class="mt-6 text-sm text-white/70"><time>{{ $sermon->sermon_date->format('F j, Y') }}</time></div><h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{{ $sermon->title }}</h1><a href="{{ route('public.speakers.show', $sermon->speaker) }}" class="mt-4 inline-flex items-center gap-3 font-semibold text-church-gold-400" wire:navigate>@if ($sermon->speaker->photo_path)<img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($sermon->speaker->photo_path) }}" alt="" class="size-10 rounded-full object-cover">@endif{{ $sermon->speaker->full_name }}</a></div>
     </header>
-    <div class="mx-auto max-w-5xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-5xl space-y-10 bg-white px-4 py-10 text-zinc-950 sm:px-6 lg:px-8">
         <x-sermons.media-player :sermon="$sermon" />
         <div class="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
             <div class="space-y-8">

@@ -109,7 +109,7 @@ test('moving a section up swaps it with only the immediately previous section', 
         ->test('pages::pages.sections', ['page' => $page])
         ->call('move', $sections['services']->id, 'up');
 
-    expect(orderedSectionNames($page))->toBe(['Hero', 'Services', 'Welcome', 'Events']);
+    expect(orderedSectionNames($page))->toBe(['Hero', 'Services', 'Welcome', 'Events', 'Ministries carousel', 'Featured book']);
 });
 
 test('moving a section down swaps it with only the immediately next section', function (): void {
@@ -122,7 +122,7 @@ test('moving a section down swaps it with only the immediately next section', fu
         ->test('pages::pages.sections', ['page' => $page])
         ->call('move', $sections['welcome']->id, 'down');
 
-    expect(orderedSectionNames($page))->toBe(['Hero', 'Services', 'Welcome', 'Events']);
+    expect(orderedSectionNames($page))->toBe(['Hero', 'Services', 'Welcome', 'Events', 'Ministries carousel', 'Featured book']);
 });
 
 test('section movement respects boundaries and permits sections beside them to take their place', function (): void {
@@ -134,13 +134,13 @@ test('section movement respects boundaries and permits sections beside them to t
 
     $component->call('move', $sections['hero']->id, 'up');
     $component->call('move', $sections['events']->id, 'down');
-    expect(orderedSectionNames($page))->toBe(['Hero', 'Welcome', 'Services', 'Events']);
+    expect(orderedSectionNames($page))->toBe(['Hero', 'Welcome', 'Services', 'Ministries carousel', 'Events', 'Featured book']);
 
     $component->call('move', $sections['welcome']->id, 'up');
-    expect(orderedSectionNames($page))->toBe(['Welcome', 'Hero', 'Services', 'Events']);
+    expect(orderedSectionNames($page))->toBe(['Welcome', 'Hero', 'Services', 'Ministries carousel', 'Events', 'Featured book']);
 
     $component->call('move', $sections['services']->id, 'down');
-    expect(orderedSectionNames($page))->toBe(['Welcome', 'Hero', 'Events', 'Services']);
+    expect(orderedSectionNames($page))->toBe(['Welcome', 'Hero', 'Ministries carousel', 'Services', 'Events', 'Featured book']);
 });
 
 test('a one-section page renders both movement controls as disabled actions', function (): void {
@@ -175,7 +175,7 @@ test('section movement remains scoped to its page and normalizes duplicate posit
         ->test('pages::pages.sections', ['page' => $homepage])
         ->call('move', $sections['services']->id, 'up');
 
-    expect(orderedSectionNames($homepage))->toBe(['Hero', 'Services', 'Welcome', 'Events'])
+    expect(orderedSectionNames($homepage))->toBe(['Hero', 'Services', 'Welcome', 'Events', 'Ministries carousel', 'Featured book'])
         ->and($homepage->sections()->pluck('sort_order')->duplicates())->toBeEmpty()
         ->and($otherPage->sections()->pluck('sort_order')->all())->toBe([10, 20])
         ->and($otherSections->map->refresh()->pluck('name')->all())->toBe(['Other First', 'Other Last']);

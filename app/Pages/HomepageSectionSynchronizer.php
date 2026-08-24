@@ -26,6 +26,9 @@ final class HomepageSectionSynchronizer
                 return null;
             }
 
+            $this->ensureMinistries($homepage);
+            $this->ensureFeaturedBook($homepage);
+
             $existing = $homepage->sections()
                 ->withTrashed()
                 ->where('section_type', PageSectionType::Welcome->value)
@@ -112,5 +115,66 @@ final class HomepageSectionSynchronizer
             ->value('sort_order');
 
         return $heroOrder === null ? 10 : (int) $heroOrder + 10;
+    }
+
+    private function ensureFeaturedBook(Page $homepage): void
+    {
+        $exists = $homepage->sections()
+            ->withTrashed()
+            ->where('section_type', PageSectionType::FeaturedBook->value)
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        $sortOrder = (int) $homepage->sections()->max('sort_order') + 10;
+
+        $homepage->sections()->create([
+            'section_type' => PageSectionType::FeaturedBook,
+            'name' => 'Featured book',
+            'heading' => 'Featured Book',
+            'settings' => [],
+            'sort_order' => $sortOrder,
+            'is_visible' => true,
+            'created_by' => $homepage->created_by,
+            'updated_by' => $homepage->updated_by,
+        ]);
+    }
+
+    private function ensureMinistries(Page $homepage): void
+    {
+        $exists = $homepage->sections()
+            ->withTrashed()
+            ->where('section_type', PageSectionType::MinistriesGrid->value)
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        $featuredBookOrder = $homepage->sections()
+            ->where('section_type', PageSectionType::FeaturedBook->value)
+            ->value('sort_order');
+        $sortOrder = $featuredBookOrder === null
+            ? (int) $homepage->sections()->max('sort_order') + 10
+            : (int) $featuredBookOrder;
+
+        if ($featuredBookOrder !== null) {
+            $homepage->sections()
+                ->where('sort_order', '>=', $sortOrder)
+                ->increment('sort_order', 10);
+        }
+
+        $homepage->sections()->create([
+            'section_type' => PageSectionType::MinistriesGrid,
+            'name' => 'Ministries carousel',
+            'heading' => 'Our Ministries',
+            'settings' => [],
+            'sort_order' => $sortOrder,
+            'is_visible' => true,
+            'created_by' => $homepage->created_by,
+            'updated_by' => $homepage->updated_by,
+        ]);
     }
 }

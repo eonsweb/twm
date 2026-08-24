@@ -46,11 +46,16 @@
                         <flux:field>
                             <flux:label>{{ __('Featured image') }}</flux:label>
                             <flux:description>{{ __('Choose an image from the Media Library.') }}</flux:description>
-                            <livewire:media-picker wire:model="form.featuredImageIds" :allowed-types="[\App\MediaType::Image->value]" collection="event-featured" :multiple="false" :maximum="1" />
+                            <livewire:media-picker wire:model.deep="form.featuredImageIds" :allowed-types="[\App\MediaType::Image->value]" collection="event-featured" :multiple="false" :maximum="1" />
                             <flux:error name="form.featuredImageIds" />
                         </flux:field>
-                        @if ($currentImageUrl && $form->featuredImageIds === [])
-                            <img src="{{ $currentImageUrl }}" alt="" class="mt-3 h-24 w-40 rounded-lg object-cover">
+                        @if (! $form->removeFeaturedImage && $currentImageUrl && $form->featuredImageIds === [])
+                            <img src="{{ $currentImageUrl }}" alt="{{ __('Current event image') }}" class="mt-3 h-24 w-40 rounded-lg object-cover">
+                        @endif
+                        @if (! $form->removeFeaturedImage && ($currentImageUrl || $form->featuredImageIds !== []))
+                            <flux:button type="button" size="sm" variant="ghost" icon="trash" wire:click="removeEventImage" class="mt-3">
+                                {{ __('Remove image') }}
+                            </flux:button>
                         @endif
                     </div>
                 </div>

@@ -397,13 +397,17 @@ class Event extends Model
 
     public function imageUrl(): ?string
     {
-        if ($this->featuredImage?->publicImageUrl() !== null) {
-            return $this->featuredImage->publicImageUrl();
+        $mediaUrl = $this->featuredImage?->publicImageUrl();
+
+        if ($mediaUrl !== null) {
+            return $mediaUrl;
         }
 
-        return $this->featured_image !== null
-            ? Storage::disk('public')->url($this->featured_image)
-            : null;
+        if ($this->featured_image === null || ! Storage::disk('public')->exists($this->featured_image)) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->featured_image);
     }
 
     public function isRecurring(): bool

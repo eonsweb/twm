@@ -38,6 +38,11 @@ class EventPolicy
         return $user->can(PermissionName::EventsRestore);
     }
 
+    public function forceDelete(User $user, Event $event): bool
+    {
+        return $user->can(PermissionName::EventsForceDelete);
+    }
+
     public function publish(User $user, Event $event): bool
     {
         return $user->can(PermissionName::EventsPublish);

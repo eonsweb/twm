@@ -28,8 +28,8 @@
 <header
     x-data="navbar"
     x-cloak
-    class="fixed top-0 left-0 z-50 w-full border-b border-white/10 text-white backdrop-blur-[4px] transition-all duration-300 hover:bg-gray-900/95"
-    x-bind:class="isScrolled ? 'bg-gray-900/90 shadow-lg' : 'bg-transparent'"
+    class="fixed top-0 left-0 z-50 w-full border-b border-white/10 text-white backdrop-blur-[4px] transition-all duration-300"
+    x-bind:class="isScrolled ? 'bg-gray-900/95 shadow-lg' : 'bg-transparent'"
 >
     <div class="mx-auto flex min-h-20 max-w-7xl items-center justify-between gap-5 px-4 sm:px-6 lg:px-8">
         <a href="{{ route('home') }}" class="flex min-w-0 items-center gap-3" wire:navigate aria-label="{{ __('Go to homepage') }}">

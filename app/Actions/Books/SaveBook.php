@@ -50,7 +50,7 @@ class SaveBook
 
             $book->fill($data)->save();
 
-            return $book->refresh()->load(['cover', 'leadership', 'speaker']);
+            return $book->refresh()->load(['cover', 'audioSample', 'leadership', 'speaker']);
         });
 
         $newValues = $this->auditValues($saved);
@@ -131,6 +131,19 @@ class SaveBook
             ]);
         }
 
+        $audioSample = filled($data['audio_sample_media_id'] ?? null)
+            ? Media::query()->find((int) $data['audio_sample_media_id'])
+            : null;
+        if (filled($data['audio_sample_media_id'] ?? null)
+            && ($audioSample === null
+                || $audioSample->media_type !== MediaType::Audio
+                || $audioSample->visibility !== MediaVisibility::Public
+                || $audioSample->status !== MediaStatus::Active)) {
+            throw ValidationException::withMessages([
+                'audio_sample_media_id' => __('The audio sample must be an active, public audio file from the Media Library.'),
+            ]);
+        }
+
         if (($data['status'] ?? null) === BookStatus::Published->value
             && ($media === null || ! filled($data['short_description'] ?? null))) {
             throw ValidationException::withMessages([
@@ -159,6 +172,7 @@ class SaveBook
             },
             'is_featured' => $book->is_featured ? 'featured' : 'unfeatured',
             'media_id' => 'cover-changed',
+            'audio_sample_media_id' => 'audio-sample-changed',
             'price' => 'price-changed',
             'availability_status' => 'availability-changed',
         ];
@@ -194,6 +208,7 @@ class SaveBook
             'currency' => $book->currency,
             'availability_status' => $book->availability_status->value,
             'media_id' => $book->media_id,
+            'audio_sample_media_id' => $book->audio_sample_media_id,
             'is_featured' => $book->is_featured,
             'is_free' => $book->is_free,
             'status' => $book->status->value,
