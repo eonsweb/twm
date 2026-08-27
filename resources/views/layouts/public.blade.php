@@ -14,11 +14,11 @@
             {{ __('Skip to main content') }}
         </a>
 
-        <x-public.site-header :settings="$publicSettings" />
+        <x-public.site-header :settings="$publicSettings" :media-urls="$brandingMediaUrls" />
 
         <main id="public-main">{{ $slot }}</main>
 
-        <x-public.site-footer :settings="$publicSettings" />
+        <x-public.site-footer :settings="$publicSettings" :media-urls="$brandingMediaUrls" />
 
         @fluxScripts
     </body>

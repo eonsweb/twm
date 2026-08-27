@@ -3,8 +3,12 @@
 
 <title>{{ filled($title ?? null) ? $title.(($titleSuffix ?? true) ? ' - '.config('app.name', 'Laravel') : '') : config('app.name', 'Laravel') }}</title>
 
-<link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+@if (filled($brandingMediaUrls['favicon'] ?? null))
+    <link rel="icon" href="{{ $brandingMediaUrls['favicon'] }}">
+@else
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+@endif
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])

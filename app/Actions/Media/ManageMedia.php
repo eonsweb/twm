@@ -7,6 +7,7 @@ use App\MediaStatus;
 use App\MediaVisibility;
 use App\Models\Media;
 use App\Models\User;
+use App\Settings\BrandingMedia;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -15,7 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 class ManageMedia
 {
-    public function __construct(private readonly MediaFileService $files) {}
+    public function __construct(
+        private readonly MediaFileService $files,
+        private readonly BrandingMedia $brandingMedia,
+    ) {}
 
     /** @param array<string, mixed> $data */
     public function update(User $actor, Media $media, array $data): Media
@@ -74,6 +78,7 @@ class ManageMedia
     public function delete(User $actor, Media $media): void
     {
         Gate::forUser($actor)->authorize('delete', $media);
+        $this->ensureNotUsedByBranding($media);
         $media->delete();
     }
 
@@ -86,10 +91,21 @@ class ManageMedia
     public function forceDelete(User $actor, Media $media): void
     {
         Gate::forUser($actor)->authorize('forceDelete', $media);
+        $this->ensureNotUsedByBranding($media);
+
         if ($media->usages()->exists()) {
             throw ValidationException::withMessages(['media' => 'This asset is still in use and cannot be permanently deleted.']);
         }
 
         $this->files->forceDelete($media);
+    }
+
+    private function ensureNotUsedByBranding(Media $media): void
+    {
+        if ($this->brandingMedia->isReferenced($media)) {
+            throw ValidationException::withMessages([
+                'media' => 'This asset is used by Branding and cannot be deleted until the branding reference is removed.',
+            ]);
+        }
     }
 }

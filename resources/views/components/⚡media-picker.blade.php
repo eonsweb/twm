@@ -21,11 +21,15 @@ new class extends Component
 
     #[Modelable] public array $mediaIds = [];
     public array $allowedTypes = [];
+    public array $allowedExtensions = [];
     public bool $multiple = false;
     public int $maximum = 1;
     public string $collection = 'default';
     public bool $allowUpload = true;
     public bool $allowPrivate = false;
+    public bool $showSelectedAssets = true;
+    public ?string $buttonLabel = null;
+    public ?string $buttonAriaLabel = null;
     public bool $open = false;
     public string $search = '';
     public string $folder = '';
@@ -34,21 +38,34 @@ new class extends Component
 
     public function mount(
         array $allowedTypes = [],
+        array $allowedExtensions = [],
         bool $multiple = false,
         int $maximum = 1,
         string $collection = 'default',
         bool $allowUpload = true,
         bool $allowPrivate = false,
+        bool $showSelectedAssets = true,
+        ?string $buttonLabel = null,
+        ?string $buttonAriaLabel = null,
     ): void {
         $this->allowedTypes = collect($allowedTypes)
             ->map(fn ($type): string => $type instanceof MediaType ? $type->value : (string) $type)
             ->filter(fn (string $type): bool => MediaType::tryFrom($type) !== null)
             ->values()->all();
+        $this->allowedExtensions = collect($allowedExtensions)
+            ->map(fn (mixed $extension): string => str($extension)->lower()->trim()->toString())
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
         $this->multiple = $multiple;
         $this->maximum = max(1, $multiple ? $maximum : 1);
         $this->collection = $collection;
         $this->allowUpload = $allowUpload;
         $this->allowPrivate = $allowPrivate;
+        $this->showSelectedAssets = $showSelectedAssets;
+        $this->buttonLabel = $buttonLabel;
+        $this->buttonAriaLabel = $buttonAriaLabel;
         $this->pending = array_values($this->mediaIds);
     }
 
@@ -59,6 +76,7 @@ new class extends Component
             ->active()
             ->when(! $this->allowPrivate, fn (Builder $query): Builder => $query->public())
             ->when($this->allowedTypes !== [], fn (Builder $query): Builder => $query->whereIn('media_type', $this->allowedTypes))
+            ->when($this->allowedExtensions !== [], fn (Builder $query): Builder => $query->whereIn('extension', $this->allowedExtensions))
             ->when($this->search !== '', fn (Builder $query): Builder => $query->search($this->search))
             ->when($this->folder === 'root', fn (Builder $query): Builder => $query->whereNull('media_folder_id'))
             ->when(ctype_digit($this->folder), fn (Builder $query): Builder => $query->where('media_folder_id', (int) $this->folder))
@@ -91,6 +109,7 @@ new class extends Component
         $media = Media::findOrFail($mediaId);
         Gate::authorize('view', $media);
         abort_if($this->allowedTypes !== [] && ! in_array($media->media_type->value, $this->allowedTypes, true), 422);
+        abort_if($this->allowedExtensions !== [] && ! in_array(strtolower($media->extension), $this->allowedExtensions, true), 422);
         abort_if(! $this->allowPrivate && $media->visibility === MediaVisibility::Private, 403);
 
         if (in_array($mediaId, $this->pending, true)) {
@@ -141,7 +160,7 @@ new class extends Component
 ?>
 
 <div class="space-y-3">
-    @if($this->selectedAssets->isNotEmpty())
+    @if($showSelectedAssets && $this->selectedAssets->isNotEmpty())
         <div class="grid gap-3 sm:grid-cols-2">
             @foreach($this->selectedAssets as $media)
                 <div wire:key="selected-media-{{ $media->id }}" class="flex items-center gap-3 rounded-lg border border-slate-200 p-3 dark:border-zinc-700">
@@ -152,7 +171,9 @@ new class extends Component
             @endforeach
         </div>
     @endif
-    <flux:button type="button" wire:click="show" icon="photo">{{ $mediaIds === [] ? __('Choose media') : __('Change media') }}</flux:button>
+    <flux:button type="button" wire:click="show" icon="photo" :aria-label="$buttonAriaLabel">
+        {{ $buttonLabel ?? ($mediaIds === [] ? __('Choose media') : __('Change media')) }}
+    </flux:button>
 
     <flux:modal wire:model="open" class="max-w-6xl">
         <div class="space-y-5">

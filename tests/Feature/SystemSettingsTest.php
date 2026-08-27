@@ -1,6 +1,9 @@
 <?php
 
+use App\Actions\Media\ManageMedia;
 use App\Mail\SettingsTestMail;
+use App\MediaType;
+use App\Models\Media;
 use App\Models\ServiceSchedule;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -12,10 +15,10 @@ use App\SystemSettingSection;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Database\Seeders\ServiceScheduleSeeder;
 use Database\Seeders\SystemSettingSeeder;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -250,39 +253,118 @@ test('service schedules can be updated and reordered atomically', function () {
         ->toBe(['Celebration Service', 'Evening Prayer']);
 });
 
-test('branding uploads are stored and old unreferenced files are removed', function () {
+test('branding selects persists and rerenders an existing media library image', function () {
     Storage::fake('public');
     $user = settingsUser(RoleName::MediaManager);
+    $media = Media::factory()->create(['name' => 'Primary Ministry Logo']);
+    Storage::disk($media->disk)->put($media->path, 'logo');
 
     Livewire::actingAs($user)
         ->test('settings.branding')
-        ->set('uploads.primary_logo', UploadedFile::fake()->image('first-logo.png', 800, 400))
+        ->assertDontSee('type="file"', false)
+        ->set('mediaIds.primary_logo', [$media->id])
         ->call('save')
         ->assertHasNoErrors();
 
-    $firstPath = app(SettingManager::class)->get('branding', 'primary_logo');
-    Storage::disk('public')->assertExists($firstPath);
+    expect(app(SettingManager::class)->get('branding', 'primary_logo'))->toBe((string) $media->id);
 
     Livewire::actingAs($user)
         ->test('settings.branding')
-        ->set('uploads.primary_logo', UploadedFile::fake()->image('replacement.png', 800, 400))
-        ->call('save')
-        ->assertHasNoErrors();
-
-    $replacementPath = app(SettingManager::class)->get('branding', 'primary_logo');
-    Storage::disk('public')->assertExists($replacementPath);
-    Storage::disk('public')->assertMissing($firstPath);
+        ->assertSet('mediaIds.primary_logo', [$media->id])
+        ->assertSee(Storage::disk($media->disk)->url($media->path), false);
 });
 
-test('branding rejects unsupported or oversized uploads', function () {
+test('removing branding media clears only the reference', function () {
     Storage::fake('public');
     $user = settingsUser(RoleName::MediaManager);
+    $media = Media::factory()->create();
+    Storage::disk($media->disk)->put($media->path, 'logo');
+    app(SettingManager::class)->put('branding', 'primary_logo', $media->id);
 
     Livewire::actingAs($user)
         ->test('settings.branding')
-        ->set('uploads.primary_logo', UploadedFile::fake()->image('unsupported.gif'))
+        ->call('removeMedia', 'primary_logo')
         ->call('save')
-        ->assertHasErrors(['uploads.primary_logo']);
+        ->assertHasNoErrors();
+
+    expect(app(SettingManager::class)->get('branding', 'primary_logo'))->toBeNull();
+    $this->assertModelExists($media);
+    Storage::disk($media->disk)->assertExists($media->path);
+});
+
+test('branding rejects non-image and unavailable media', function () {
+    Storage::fake('public');
+    $user = settingsUser(RoleName::MediaManager);
+    $document = Media::factory()->create([
+        'media_type' => MediaType::Document,
+        'mime_type' => 'application/pdf',
+        'extension' => 'pdf',
+    ]);
+    Storage::disk($document->disk)->put($document->path, 'document');
+
+    Livewire::actingAs($user)
+        ->test('settings.branding')
+        ->set('mediaIds.primary_logo', [$document->id])
+        ->call('save')
+        ->assertHasErrors(['mediaIds.primary_logo']);
+
+    $missingFile = Media::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('settings.branding')
+        ->set('mediaIds.primary_logo', [$missingFile->id])
+        ->call('save')
+        ->assertHasErrors(['mediaIds.primary_logo']);
+});
+
+test('missing branding media references render a safe placeholder', function () {
+    $user = settingsUser(RoleName::MediaManager);
+    app(SettingManager::class)->put('branding', 'primary_logo', 999999);
+
+    Livewire::actingAs($user)
+        ->test('settings.branding')
+        ->assertSet('mediaIds.primary_logo', [999999])
+        ->assertSee('Choose from Media Library');
+});
+
+test('legacy branding paths remain available until explicitly replaced or removed', function () {
+    Storage::fake('public');
+    $user = settingsUser(RoleName::MediaManager);
+    $legacyPath = 'system-settings/branding/legacy-logo.png';
+    Storage::disk('public')->put($legacyPath, 'legacy-logo');
+    app(SettingManager::class)->put('branding', 'primary_logo', $legacyPath);
+
+    Livewire::actingAs($user)
+        ->test('settings.branding')
+        ->assertSee(Storage::disk('public')->url($legacyPath), false)
+        ->set('values.primary_color', '#701c2d')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(app(SettingManager::class)->get('branding', 'primary_logo'))->toBe($legacyPath);
+    Storage::disk('public')->assertExists($legacyPath);
+});
+
+test('public views resolve branding media ids through media records', function () {
+    Storage::fake('public');
+    $media = Media::factory()->create();
+    Storage::disk($media->disk)->put($media->path, 'logo');
+    app(SettingManager::class)->put('branding', 'primary_logo', $media->id);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee(Storage::disk($media->disk)->url($media->path), false);
+});
+
+test('media referenced by branding cannot be deleted', function () {
+    $user = settingsUser(RoleName::MediaManager);
+    $media = Media::factory()->create();
+    app(SettingManager::class)->put('branding', 'primary_logo', $media->id);
+
+    expect(fn () => app(ManageMedia::class)->delete($user, $media))
+        ->toThrow(ValidationException::class, 'used by Branding');
+
+    $this->assertModelExists($media);
 });
 
 test('system settings routes enforce authentication and granular permissions', function () {

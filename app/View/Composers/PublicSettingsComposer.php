@@ -4,17 +4,21 @@ namespace App\View\Composers;
 
 use App\Models\Page;
 use App\Models\ServiceSchedule;
+use App\Settings\BrandingMedia;
 use App\Settings\SettingManager;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class PublicSettingsComposer
 {
-    public function __construct(private readonly SettingManager $settings) {}
+    public function __construct(
+        private readonly SettingManager $settings,
+        private readonly BrandingMedia $brandingMedia,
+    ) {}
 
     public function compose(View $view): void
     {
-        $view->with('publicSettings', $this->settings->publicGroups([
+        $publicSettings = $this->settings->publicGroups([
             'general',
             'homepage',
             'church',
@@ -24,7 +28,17 @@ class PublicSettingsComposer
             'donations',
             'localization',
             'maintenance',
-        ]));
+        ]);
+        $branding = $publicSettings['branding'] ?? [];
+
+        if ($view->name() === 'components.app-logo') {
+            $branding['admin_logo'] = $this->settings->get('branding', 'admin_logo');
+        }
+
+        $view->with([
+            'publicSettings' => $publicSettings,
+            'brandingMediaUrls' => $this->brandingMedia->urls($branding),
+        ]);
 
         $view->with('publicNavigationPages', Cache::remember(
             'pages.public-navigation',

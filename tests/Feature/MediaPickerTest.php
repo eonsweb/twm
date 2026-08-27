@@ -66,6 +66,20 @@ test('the media picker enforces allowed types', function (): void {
         ->assertStatus(422);
 });
 
+test('the media picker enforces allowed extensions', function (): void {
+    $user = pickerUser(PermissionName::MediaView);
+    $jpeg = Media::factory()->create(['extension' => 'jpg', 'visibility' => MediaVisibility::Public]);
+
+    Livewire::actingAs($user)
+        ->test('media-picker', [
+            'allowedTypes' => [MediaType::Image->value],
+            'allowedExtensions' => ['ico', 'png', 'svg', 'webp'],
+        ])
+        ->call('show')
+        ->call('toggle', $jpeg->id)
+        ->assertStatus(422);
+});
+
 test('existing media picker selections are displayed and can be removed', function (): void {
     $user = pickerUser(PermissionName::MediaView);
     $media = Media::factory()->create(['visibility' => MediaVisibility::Public]);

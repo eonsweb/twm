@@ -9,10 +9,10 @@ use App\Models\Ministry;
 use App\Models\Person;
 use App\Models\Sermon;
 use App\Models\ServiceSchedule;
+use App\Settings\BrandingMedia;
 use App\Settings\SettingManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 
 class HomepageContent
 {
@@ -21,7 +21,10 @@ class HomepageContent
         'services', 'welcome_upcoming_event', 'ministries', 'calls_to_action', 'featured_book', 'testimonials',
     ];
 
-    public function __construct(private readonly SettingManager $settings) {}
+    public function __construct(
+        private readonly SettingManager $settings,
+        private readonly BrandingMedia $brandingMedia,
+    ) {}
 
     /**
      * @return array{
@@ -44,13 +47,14 @@ class HomepageContent
         $settings = $this->settings->publicGroups([
             'general', 'homepage', 'church', 'contact', 'branding', 'social', 'donations',
         ]);
+        $brandingUrls = $this->brandingMedia->urls($settings['branding'] ?? []);
 
         return [
             'settings' => $settings,
             'enabledSections' => $this->enabledSections($settings['homepage'] ?? []),
-            'heroImageUrl' => $this->publicAssetUrl(data_get($settings, 'branding.homepage_hero_image')),
-            'logoUrl' => $this->publicAssetUrl(data_get($settings, 'branding.primary_logo')),
-            'socialImageUrl' => $this->publicAssetUrl(data_get($settings, 'branding.social_share_image')),
+            'heroImageUrl' => $brandingUrls['homepage_hero_image'] ?? null,
+            'logoUrl' => $brandingUrls['primary_logo'] ?? null,
+            'socialImageUrl' => $brandingUrls['social_share_image'] ?? null,
             'serviceSchedules' => $this->serviceSchedules(),
             'welcomeLeader' => $this->welcomeLeader($settings['homepage'] ?? []),
             'latestSermon' => $this->latestSermon(),
@@ -203,11 +207,6 @@ class HomepageContent
         }
 
         return $testimonials;
-    }
-
-    private function publicAssetUrl(mixed $path): ?string
-    {
-        return filled($path) ? Storage::disk('public')->url((string) $path) : null;
     }
 
     private function safeExternalUrl(mixed $url): ?string

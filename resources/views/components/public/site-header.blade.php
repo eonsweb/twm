@@ -1,11 +1,9 @@
-@props(['settings' => []])
+@props(['settings' => [], 'mediaUrls' => []])
 
 @php
-    $branding = $settings['branding'] ?? [];
     $social = $settings['social'] ?? [];
     $church = $settings['church'] ?? [];
-    $logoPath = $branding['primary_logo'] ?? null;
-    $logoUrl = filled($logoPath) ? Storage::disk('public')->url($logoPath) : null;
+    $logoUrl = $mediaUrls['primary_logo'] ?? null;
     $liveUrl = ($social['livestream_enabled'] ?? false) && filled($social['livestream_url'] ?? null)
         ? $social['livestream_url']
         : route('public.sermons.index');

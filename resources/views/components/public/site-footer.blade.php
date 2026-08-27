@@ -1,13 +1,11 @@
-@props(['settings' => []])
+@props(['settings' => [], 'mediaUrls' => []])
 
 @php
     $general = $settings['general'] ?? [];
     $church = $settings['church'] ?? [];
     $contact = $settings['contact'] ?? [];
     $social = $settings['social'] ?? [];
-    $branding = $settings['branding'] ?? [];
-    $footerPath = $branding['footer_logo'] ?? $branding['primary_logo'] ?? null;
-    $footerLogoUrl = filled($footerPath) ? Storage::disk('public')->url($footerPath) : null;
+    $footerLogoUrl = ($mediaUrls['footer_logo'] ?? null) ?: ($mediaUrls['primary_logo'] ?? null);
     $socialNames = ['facebook' => 'Facebook', 'instagram' => 'Instagram', 'youtube' => 'YouTube', 'x' => 'X', 'tiktok' => 'TikTok'];
 @endphp
 
