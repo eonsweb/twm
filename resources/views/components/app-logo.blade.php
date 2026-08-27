@@ -14,14 +14,19 @@
         ]) }}
     >
         @if ($adminLogoUrl)
-            <img src="{{ $adminLogoUrl }}" alt="" class="size-11 shrink-0 object-contain">
+            <img
+                src="{{ $adminLogoUrl }}"
+                alt="{{ __(':church Administration', ['church' => $churchName]) }}"
+                class="max-h-11 max-w-48 object-contain"
+                data-test="sidebar-branding-logo"
+            >
         @else
             <x-app-logo-icon class="size-11 shrink-0 text-church-gold-400" />
+            <span class="text-sm font-semibold leading-5" data-test="sidebar-branding-fallback">
+                <span class="block max-w-36 text-balance">{{ $churchName }}</span>
+                <span class="block text-xs font-normal text-white/70">{{ __('Administration') }}</span>
+            </span>
         @endif
-        <span class="text-sm font-semibold leading-5">
-            <span class="block max-w-36 text-balance">{{ $churchName }}</span>
-            <span class="block text-xs font-normal text-white/70">{{ __('Administration') }}</span>
-        </span>
     </a>
 @else
     <a {{ $attributes->class(['flex items-center gap-2 font-semibold text-church-maroon-900 dark:text-white']) }}>
