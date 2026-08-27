@@ -30,7 +30,6 @@ class HomepageContent
      * @return array{
      *   settings: array<string, array<string, mixed>>,
      *   enabledSections: list<string>,
-     *   heroImageUrl: string|null,
      *   logoUrl: string|null,
      *   socialImageUrl: string|null,
      *   serviceSchedules: Collection<int, ServiceSchedule>,
@@ -52,7 +51,6 @@ class HomepageContent
         return [
             'settings' => $settings,
             'enabledSections' => $this->enabledSections($settings['homepage'] ?? []),
-            'heroImageUrl' => $brandingUrls['homepage_hero_image'] ?? null,
             'logoUrl' => $brandingUrls['primary_logo'] ?? null,
             'socialImageUrl' => $brandingUrls['social_share_image'] ?? null,
             'serviceSchedules' => $this->serviceSchedules(),

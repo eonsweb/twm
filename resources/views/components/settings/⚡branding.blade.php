@@ -148,6 +148,15 @@ new class extends Component
         unset($this->previewUrls);
     }
 
+    public function resetBrandColors(): void
+    {
+        Gate::authorize(PermissionName::SettingsBrandingUpdate->value);
+
+        foreach ($this->colorDefinitions as $definition) {
+            $this->values[$definition['key']] = $definition['default'];
+        }
+    }
+
     /** @return list<string> */
     public function allowedExtensions(string $key): array
     {
@@ -223,12 +232,6 @@ new class extends Component
 
                     <p class="text-sm font-medium text-slate-950 dark:text-white">{{ __($definition['label']) }}</p>
 
-                    @if ($key === 'homepage_hero_image')
-                        <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-zinc-400">
-                            {{ __('Used only by the legacy homepage fallback. Managed homepage heroes use Pages → Home → Sections.') }}
-                        </p>
-                    @endif
-
                     <div class="mt-3 flex flex-wrap items-center gap-2">
                         <livewire:media-picker
                             :key="'branding-picker-'.$key"
@@ -270,6 +273,18 @@ new class extends Component
             @foreach ($this->colorDefinitions as $definition)
                 <flux:input wire:model="values.{{ $definition['key'] }}" type="color" :label="__($definition['label'])" />
             @endforeach
+        </div>
+        <div class="mt-4 flex justify-end">
+            <flux:button
+                type="button"
+                variant="ghost"
+                icon="arrow-path"
+                wire:click="resetBrandColors"
+                wire:loading.attr="disabled"
+                wire:target="resetBrandColors"
+            >
+                {{ __('Reset colors') }}
+            </flux:button>
         </div>
     </div>
 

@@ -11,6 +11,7 @@ use App\PermissionName;
 use App\RoleName;
 use App\Settings\SettingManager;
 use App\Settings\SettingRegistry;
+use App\SettingType;
 use App\SystemSettingSection;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Database\Seeders\ServiceScheduleSeeder;
@@ -262,6 +263,15 @@ test('branding selects persists and rerenders an existing media library image', 
     Livewire::actingAs($user)
         ->test('settings.branding')
         ->assertDontSee('type="file"', false)
+        ->assertSee('Primary logo')
+        ->assertSee('Secondary logo')
+        ->assertSee('Dark-mode logo')
+        ->assertSee('Favicon')
+        ->assertSee('Public website footer logo')
+        ->assertSee('Admin dashboard logo')
+        ->assertDontSee('Social sharing image')
+        ->assertDontSee('Homepage hero image')
+        ->assertDontSee('Organization letterhead')
         ->set('mediaIds.primary_logo', [$media->id])
         ->call('save')
         ->assertHasNoErrors();
@@ -272,6 +282,33 @@ test('branding selects persists and rerenders an existing media library image', 
         ->test('settings.branding')
         ->assertSet('mediaIds.primary_logo', [$media->id])
         ->assertSee(Storage::disk($media->disk)->url($media->path), false);
+});
+
+test('branding colors reset to their canonical defaults without changing media state', function () {
+    Storage::fake('public');
+    $user = settingsUser(RoleName::MediaManager);
+    $media = Media::factory()->create();
+    Storage::disk($media->disk)->put($media->path, 'logo');
+    $settings = app(SettingManager::class);
+    $settings->put('branding', 'primary_logo', $media->id);
+    $settings->put('branding', 'primary_color', '#444444');
+    $defaults = collect(app(SettingRegistry::class)->forSection(SystemSettingSection::Branding))
+        ->whereIn('key', ['primary_color', 'secondary_color', 'accent_color'])
+        ->pluck('default', 'key');
+
+    Livewire::actingAs($user)
+        ->test('settings.branding')
+        ->assertSee('Reset colors')
+        ->set('values.primary_color', '#111111')
+        ->set('values.secondary_color', '#222222')
+        ->set('values.accent_color', '#333333')
+        ->call('resetBrandColors')
+        ->assertSet('values.primary_color', $defaults->get('primary_color'))
+        ->assertSet('values.secondary_color', $defaults->get('secondary_color'))
+        ->assertSet('values.accent_color', $defaults->get('accent_color'))
+        ->assertSet('mediaIds.primary_logo', [$media->id]);
+
+    expect($settings->get('branding', 'primary_color'))->toBe('#444444');
 });
 
 test('removing branding media clears only the reference', function () {
@@ -354,6 +391,54 @@ test('public views resolve branding media ids through media records', function (
     $this->get(route('home'))
         ->assertOk()
         ->assertSee(Storage::disk($media->disk)->url($media->path), false);
+});
+
+test('removed branding fields remain stored without controlling the homepage hero', function () {
+    Storage::fake('public');
+    $user = settingsUser(RoleName::MediaManager);
+    $socialImage = Media::factory()->create(['path' => 'media/images/social-share.jpg']);
+    $legacyHero = Media::factory()->create(['path' => 'media/images/legacy-hero.jpg']);
+    $letterhead = Media::factory()->create(['path' => 'media/images/letterhead.jpg']);
+
+    foreach ([$socialImage, $legacyHero, $letterhead] as $media) {
+        Storage::disk($media->disk)->put($media->path, $media->name);
+    }
+
+    $settings = app(SettingManager::class);
+
+    foreach ([
+        'social_share_image' => [$socialImage, true],
+        'homepage_hero_image' => [$legacyHero, true],
+        'letterhead' => [$letterhead, false],
+    ] as $key => [$media, $isPublic]) {
+        SystemSetting::query()->create([
+            'group' => 'branding',
+            'key' => $key,
+            'value' => (string) $media->id,
+            'type' => SettingType::Image,
+            'label' => str($key)->headline(),
+            'description' => null,
+            'is_public' => $isPublic,
+            'is_encrypted' => false,
+        ]);
+    }
+
+    $settings->forgetGroup('branding');
+
+    Livewire::actingAs($user)
+        ->test('settings.branding')
+        ->set('values.primary_color', '#701c2d')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($settings->get('branding', 'social_share_image'))->toBe((string) $socialImage->id)
+        ->and($settings->get('branding', 'homepage_hero_image'))->toBe((string) $legacyHero->id)
+        ->and($settings->get('branding', 'letterhead'))->toBe((string) $letterhead->id);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee(Storage::disk($socialImage->disk)->url($socialImage->path), false)
+        ->assertDontSee(Storage::disk($legacyHero->disk)->url($legacyHero->path), false);
 });
 
 test('media referenced by branding cannot be deleted', function () {

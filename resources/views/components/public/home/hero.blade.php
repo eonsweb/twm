@@ -1,6 +1,5 @@
 @props([
     'settings' => [],
-    'imageUrl' => null,
     'section' => null,
     'pageTitle' => null,
 ])
@@ -10,7 +9,7 @@
     $church = $settings['church'] ?? [];
     $sectionSettings = $section?->settings ?? [];
     $backgroundMedia = $section?->backgroundImage;
-    $backgroundUrl = $backgroundMedia?->publicImageUrl() ?? $imageUrl;
+    $backgroundUrl = $backgroundMedia?->publicImageUrl();
     $backgroundAlt = filled(data_get($sectionSettings, 'background_alt'))
         ? data_get($sectionSettings, 'background_alt')
         : ($backgroundMedia?->alt_text ?: $backgroundMedia?->name ?: __('Triumphant World Ministry church service'));

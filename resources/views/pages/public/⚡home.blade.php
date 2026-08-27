@@ -103,7 +103,7 @@ new #[Layout('layouts.public')] class extends Component
 </article>
 @else
 <div class="overflow-hidden bg-white">
-    <x-public.home.hero :settings="$settings" :image-url="$home['heroImageUrl']" />
+    <x-public.home.hero :settings="$settings" />
 
     @if (in_array('services', $enabled, true))
         <x-public.home.services :schedules="$home['serviceSchedules']" :settings="$settings" />
