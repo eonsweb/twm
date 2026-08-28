@@ -3,6 +3,8 @@
 @php
     $social = $settings['social'] ?? [];
     $church = $settings['church'] ?? [];
+    $primaryColor = data_get($settings, 'branding.primary_color', 'transparent');
+    $accentColor = data_get($settings, 'branding.accent_color', 'transparent');
     $logoUrl = $mediaUrls['primary_logo'] ?? null;
     $liveUrl = ($social['livestream_enabled'] ?? false) && filled($social['livestream_url'] ?? null)
         ? $social['livestream_url']
@@ -27,7 +29,8 @@
     x-data="navbar"
     x-cloak
     class="fixed top-0 left-0 z-50 w-full border-b border-white/10 text-white backdrop-blur-[4px] transition-all duration-300"
-    x-bind:class="isScrolled ? 'bg-gray-900/95 shadow-lg' : 'bg-transparent'"
+    x-bind:class="isScrolled ? 'shadow-lg' : 'bg-transparent'"
+    x-bind:style="{ backgroundColor: isScrolled ? '{{ $primaryColor }}' : 'transparent' }"
 >
     <div class="mx-auto flex min-h-20 max-w-7xl items-center justify-between gap-5 px-4 sm:px-6 lg:px-8">
         <a href="{{ route('home') }}" class="flex min-w-0 items-center gap-3" wire:navigate aria-label="{{ __('Go to homepage') }}">
@@ -51,7 +54,7 @@
         </nav>
 
         <div class="flex items-center gap-2">
-            <a href="{{ $liveUrl }}" @if (str_starts_with($liveUrl, 'http')) target="_blank" rel="noopener noreferrer" @else wire:navigate @endif class="hidden rounded-md bg-red-700 px-4 py-2.5 text-xs font-bold uppercase shadow-lg transition hover:bg-red-600 sm:inline-flex">
+            <a href="{{ $liveUrl }}" @if (str_starts_with($liveUrl, 'http')) target="_blank" rel="noopener noreferrer" @else wire:navigate @endif class="hidden rounded-md px-4 py-2.5 text-xs font-bold uppercase shadow-lg transition hover:brightness-110 sm:inline-flex" style="background-color: {{ $accentColor }}; color: {{ $primaryColor }}">
                 {{ __('Watch Live') }}
             </a>
             <button type="button" class="grid size-11 place-items-center rounded-md border border-white/20 lg:hidden" x-on:click="open = ! open" x-bind:aria-expanded="open" aria-controls="public-mobile-menu" aria-label="{{ __('Toggle navigation') }}">
@@ -66,7 +69,7 @@
             @foreach ($navigation as $item)
                 <a href="{{ $item['url'] }}" x-on:click="open = false" @class(['rounded-md px-4 py-3 text-sm font-semibold hover:bg-white/10', 'text-church-gold-300' => $item['active']]) wire:navigate>{{ $item['label'] }}</a>
             @endforeach
-            <a href="{{ $liveUrl }}" @if (str_starts_with($liveUrl, 'http')) target="_blank" rel="noopener noreferrer" @else wire:navigate @endif class="mt-2 rounded-md bg-red-700 px-4 py-3 text-center text-sm font-bold uppercase">{{ __('Watch Live') }}</a>
+            <a href="{{ $liveUrl }}" @if (str_starts_with($liveUrl, 'http')) target="_blank" rel="noopener noreferrer" @else wire:navigate @endif class="mt-2 rounded-md px-4 py-3 text-center text-sm font-bold uppercase" style="background-color: {{ $accentColor }}; color: {{ $primaryColor }}">{{ __('Watch Live') }}</a>
         </div>
     </nav>
 </header>

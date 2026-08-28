@@ -18,6 +18,7 @@ use App\Settings\SettingManager;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 beforeEach(function (): void {
     app(SettingManager::class)->initializeDefaults();
@@ -35,18 +36,44 @@ test('the public homepage renders its shared layout and primary calls to action'
 });
 
 test('the public layout keeps the fixed navbar outside a neutral main element', function (): void {
+    app(SettingManager::class)->put('branding', 'primary_color', '#245f4f');
+    app(SettingManager::class)->put('branding', 'accent_color', '#c47a20');
+
     $response = $this->get(route('home'))->assertOk();
     $html = $response->getContent();
+    $navbar = Str::between($html, '<header', '</header>');
 
     expect($html)
         ->toContain('<main id="public-main">')
         ->not->toContain('<main id="public-main" class="bg-gray-900')
-        ->and(strpos($html, 'x-data="navbar"'))->toBeLessThan(strpos($html, '<main id="public-main">'));
+        ->and(strpos($html, 'x-data="navbar"'))->toBeLessThan(strpos($html, '<main id="public-main">'))
+        ->and(substr_count($navbar, 'background-color: #c47a20'))->toBe(2)
+        ->and(substr_count($navbar, 'color: #245f4f'))->toBe(2)
+        ->and($navbar)->not->toContain('bg-black')
+        ->and($navbar)->not->toContain('bg-red-700');
 
     $response
         ->assertSee('fixed top-0 left-0 z-50', false)
-        ->assertSee("isScrolled ? 'bg-gray-900/95 shadow-lg' : 'bg-transparent'", false)
+        ->assertSee("isScrolled ? 'shadow-lg' : 'bg-transparent'", false)
+        ->assertSee("backgroundColor: isScrolled ? '#245f4f' : 'transparent'", false)
+        ->assertDontSee('bg-gray-900/95', false)
         ->assertSee('backdrop-blur-[4px]', false);
+
+    app(SettingManager::class)->put('branding', 'primary_color', '#315d88');
+    app(SettingManager::class)->put('branding', 'accent_color', '#a64073');
+
+    $sermonsResponse = $this->get(route('public.sermons.index'))
+        ->assertOk()
+        ->assertSee("backgroundColor: isScrolled ? '#315d88' : 'transparent'", false)
+        ->assertDontSee("backgroundColor: isScrolled ? '#245f4f' : 'transparent'", false)
+        ->assertDontSee('bg-gray-900/95', false);
+
+    $sermonsNavbar = Str::between($sermonsResponse->getContent(), '<header', '</header>');
+
+    expect(substr_count($sermonsNavbar, 'background-color: #a64073'))->toBe(2)
+        ->and(substr_count($sermonsNavbar, 'color: #315d88'))->toBe(2)
+        ->and($sermonsNavbar)->not->toContain('background-color: #c47a20')
+        ->and($sermonsNavbar)->not->toContain('color: #245f4f');
 });
 
 test('public index pages render a maroon overlay hero above white content', function (string $routeName): void {
