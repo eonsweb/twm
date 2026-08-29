@@ -95,7 +95,7 @@ new #[Layout('layouts.public')] class extends Component
     @if($managedPage->content && trim(strip_tags($managedPage->content)) !== 'Content for this page can be managed from the Pages administration module.')<div class="prose mx-auto max-w-4xl px-4 py-12 sm:px-6">{!! app(\App\Blog\HtmlSanitizer::class)->sanitize($managedPage->content) !!}</div>@endif
     @foreach($managedPage->sections as $section)
         @if($section->section_type === PageSectionType::Hero)
-            <x-public.home.hero :section="$section" :page-title="$managedPage->title" wire:key="homepage-section-{{ $section->id }}" />
+            <x-public.home.hero :settings="$settings" :section="$section" :page-title="$managedPage->title" wire:key="homepage-section-{{ $section->id }}" />
         @else
             <x-public.page-section :section="$section" :data="$sectionData[$section->id] ?? []" wire:key="homepage-section-{{ $section->id }}" />
         @endif

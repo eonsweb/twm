@@ -9,6 +9,7 @@ use App\Models\Media;
 use App\Models\Page;
 use App\Models\PageSection;
 use App\PageSectionType;
+use App\Pages\HomepageHero;
 use App\Pages\HomepageSectionSynchronizer;
 use Flux\Flux;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,18 @@ new #[Layout('layouts.app')] class extends Component
     public string $welcomeSignature = '';
     public string $welcomePastorName = '';
     public string $welcomePastorRole = '';
+    public string $heroVariant = 'anniversary';
+    public string $heroAnniversaryNumber = '20';
+    public string $heroAnniversaryUnit = 'YEARS';
+    public string $heroScriptHeading = '';
+    public string $heroTheme = '';
+    public string $heroPrimaryLabel = '';
+    public string $heroPrimaryUrl = '';
+    public string $heroSecondaryLabel = '';
+    public string $heroSecondaryUrl = '';
+
+    /** @var list<int> */
+    public array $heroEmblemMediaIds = [];
 
     public function mount(Page $page, HomepageSectionSynchronizer $homepageSections): void
     {
@@ -59,28 +72,45 @@ new #[Layout('layouts.app')] class extends Component
             ->first(['id', 'name', 'path', 'disk', 'media_type', 'visibility', 'status', 'alt_text', 'width', 'height']);
     }
 
-    public function edit(int $id): void
+    #[Computed]
+    public function selectedHeroEmblemMedia(): ?Media
+    {
+        if ($this->heroEmblemMediaIds === []) {
+            return null;
+        }
+
+        return Media::query()
+            ->whereKey($this->heroEmblemMediaIds[0])
+            ->first(['id', 'name', 'path', 'disk', 'media_type', 'visibility', 'status', 'alt_text', 'width', 'height']);
+    }
+
+    public function edit(int $id, HomepageHero $homepageHero): void
     {
         Gate::authorize('manageSections', $this->page);
         $section = $this->page->sections()->findOrFail($id);
+        $hero = $section->section_type === PageSectionType::Hero
+            ? $homepageHero->resolve($section)['settings']
+            : null;
 
         $this->sectionId = $section->id;
         $this->sectionType = $section->section_type->value;
         $this->name = $section->name;
-        $this->heading = $section->heading ?? '';
-        $this->subheading = $section->subheading ?? '';
-        $this->content = $section->content ?? '';
+        $this->heading = (string) ($hero['heading'] ?? $section->heading ?? '');
+        $this->subheading = (string) ($hero['eyebrow'] ?? $section->subheading ?? '');
+        $this->content = (string) ($hero['description'] ?? $section->content ?? '');
+        $excludedSettings = [
+            'background_alt',
+            'pastor_image_alt',
+            'signature_text',
+            'pastor_name',
+            'pastor_title',
+            'welcome_signature',
+            'welcome_pastor_name',
+            'welcome_pastor_role',
+            ...($hero === null ? [] : $homepageHero->editableSettingKeys()),
+        ];
         $this->settings = json_encode(
-            collect($section->settings ?? [])->except([
-                'background_alt',
-                'pastor_image_alt',
-                'signature_text',
-                'pastor_name',
-                'pastor_title',
-                'welcome_signature',
-                'welcome_pastor_name',
-                'welcome_pastor_role',
-            ])->all(),
+            collect($section->settings ?? [])->except($excludedSettings)->all(),
             JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES,
         );
         $this->isVisible = $section->is_visible;
@@ -95,7 +125,18 @@ new #[Layout('layouts.app')] class extends Component
         $this->welcomeSignature = (string) (data_get($section->settings, 'welcome_signature') ?: data_get($section->settings, 'signature_text', ''));
         $this->welcomePastorName = (string) (data_get($section->settings, 'welcome_pastor_name') ?: data_get($section->settings, 'pastor_name', ''));
         $this->welcomePastorRole = (string) (data_get($section->settings, 'welcome_pastor_role') ?: data_get($section->settings, 'pastor_title', ''));
+        $this->heroVariant = (string) ($hero['variant'] ?? 'anniversary');
+        $this->heroAnniversaryNumber = (string) ($hero['anniversary_number'] ?? '20');
+        $this->heroAnniversaryUnit = (string) ($hero['anniversary_unit'] ?? 'YEARS');
+        $this->heroScriptHeading = (string) ($hero['script_heading'] ?? '');
+        $this->heroTheme = (string) ($hero['theme'] ?? '');
+        $this->heroPrimaryLabel = (string) ($hero['primary_label'] ?? '');
+        $this->heroPrimaryUrl = (string) ($hero['primary_url'] ?? '');
+        $this->heroSecondaryLabel = (string) ($hero['secondary_label'] ?? '');
+        $this->heroSecondaryUrl = (string) ($hero['secondary_url'] ?? '');
+        $this->heroEmblemMediaIds = filled($hero['emblem_media_id'] ?? null) ? [(int) $hero['emblem_media_id']] : [];
         unset($this->selectedBackgroundMedia);
+        unset($this->selectedHeroEmblemMedia);
     }
 
     public function save(HtmlSanitizer $sanitizer, ActivityLogger $logger): void
@@ -116,6 +157,17 @@ new #[Layout('layouts.app')] class extends Component
             'welcomeSignature' => ['nullable', 'string', 'max:255'],
             'welcomePastorName' => ['nullable', 'string', 'max:255'],
             'welcomePastorRole' => ['nullable', 'string', 'max:255'],
+            'heroVariant' => ['required', Rule::in(['default', 'anniversary'])],
+            'heroAnniversaryNumber' => ['nullable', 'string', 'max:20'],
+            'heroAnniversaryUnit' => ['nullable', 'string', 'max:30'],
+            'heroScriptHeading' => ['nullable', 'string', 'max:100'],
+            'heroTheme' => ['nullable', 'string', 'max:500'],
+            'heroPrimaryLabel' => ['nullable', 'string', 'max:100'],
+            'heroPrimaryUrl' => ['nullable', 'string', 'max:2048'],
+            'heroSecondaryLabel' => ['nullable', 'string', 'max:100'],
+            'heroSecondaryUrl' => ['nullable', 'string', 'max:2048'],
+            'heroEmblemMediaIds' => ['array', 'max:1'],
+            'heroEmblemMediaIds.*' => ['integer', 'distinct', Rule::exists(Media::class, 'id')->withoutTrashed()],
         ]);
 
         if ($this->page->is_homepage
@@ -138,6 +190,25 @@ new #[Layout('layouts.app')] class extends Component
             ? $this->validatedBackgroundMedia()
             : null;
         $settings = $this->validatedSettings($validated['sectionType'], $validated['settings']);
+
+        if ($validated['sectionType'] === PageSectionType::Hero->value) {
+            $emblemMedia = $this->validatedHeroEmblemMedia();
+            $settings = [
+                ...$settings,
+                ...array_filter([
+                    'variant' => $validated['heroVariant'],
+                    'anniversary_number' => trim($validated['heroAnniversaryNumber']),
+                    'anniversary_unit' => trim($validated['heroAnniversaryUnit']),
+                    'script_heading' => trim($validated['heroScriptHeading']),
+                    'theme' => trim($validated['heroTheme']),
+                    'emblem_media_id' => $emblemMedia?->id,
+                    'primary_label' => trim($validated['heroPrimaryLabel']),
+                    'primary_url' => trim($validated['heroPrimaryUrl']),
+                    'secondary_label' => trim($validated['heroSecondaryLabel']),
+                    'secondary_url' => trim($validated['heroSecondaryUrl']),
+                ], fn (mixed $value): bool => filled($value)),
+            ];
+        }
 
         if (in_array($validated['sectionType'], [PageSectionType::Welcome->value, PageSectionType::WelcomeUpcomingEvent->value], true)) {
             $settings = array_filter([
@@ -287,11 +358,22 @@ new #[Layout('layouts.app')] class extends Component
             'welcomeSignature',
             'welcomePastorName',
             'welcomePastorRole',
+            'heroVariant',
+            'heroAnniversaryNumber',
+            'heroAnniversaryUnit',
+            'heroScriptHeading',
+            'heroTheme',
+            'heroPrimaryLabel',
+            'heroPrimaryUrl',
+            'heroSecondaryLabel',
+            'heroSecondaryUrl',
+            'heroEmblemMediaIds',
         );
         $this->sectionType = 'rich-text';
         $this->settings = '{}';
         $this->isVisible = true;
         unset($this->selectedBackgroundMedia);
+        unset($this->selectedHeroEmblemMedia);
     }
 
     private function validatedBackgroundMedia(): ?Media
@@ -322,17 +404,57 @@ new #[Layout('layouts.app')] class extends Component
         return $media;
     }
 
+    private function validatedHeroEmblemMedia(): ?Media
+    {
+        if ($this->heroEmblemMediaIds === []) {
+            return null;
+        }
+
+        $media = Media::query()->find($this->heroEmblemMediaIds[0]);
+
+        if (! $media) {
+            throw ValidationException::withMessages([
+                'heroEmblemMediaIds' => __('The selected anniversary emblem no longer exists.'),
+            ]);
+        }
+
+        Gate::authorize('view', $media);
+
+        if ($media->media_type !== MediaType::Image
+            || $media->visibility !== MediaVisibility::Public
+            || $media->status !== MediaStatus::Active
+            || ! $media->existsOnDisk()) {
+            throw ValidationException::withMessages([
+                'heroEmblemMediaIds' => __('The anniversary emblem must be an available, active, public image from the Media Library.'),
+            ]);
+        }
+
+        return $media;
+    }
+
     /** @return array<string, mixed> */
     private function validatedSettings(string $type, string $json): array
     {
         $settings = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         $rules = match ($type) {
             'hero' => [
+                'variant' => ['nullable', Rule::in(['default', 'anniversary'])],
+                'anniversary_number' => ['nullable', 'string', 'max:20'],
+                'anniversary_unit' => ['nullable', 'string', 'max:30'],
                 'primary_label' => ['nullable', 'string', 'max:100'],
                 'primary_url' => ['nullable', 'string', 'max:2048'],
                 'secondary_label' => ['nullable', 'string', 'max:100'],
                 'secondary_url' => ['nullable', 'string', 'max:2048'],
                 'eyebrow' => ['nullable', 'string', 'max:150'],
+                'script_heading' => ['nullable', 'string', 'max:100'],
+                'theme' => ['nullable', 'string', 'max:500'],
+                'emblem_media_id' => ['nullable', 'integer'],
+                'show_emblem' => ['nullable', 'boolean'],
+                'show_theme' => ['nullable', 'boolean'],
+                'show_description' => ['nullable', 'boolean'],
+                'show_primary_cta' => ['nullable', 'boolean'],
+                'show_secondary_cta' => ['nullable', 'boolean'],
+                'show_scroll_indicator' => ['nullable', 'boolean'],
                 'overlay' => ['nullable', 'integer', 'between:0,100'],
                 'alignment' => ['nullable', Rule::in(['left', 'center', 'right'])],
             ],
@@ -379,6 +501,7 @@ new #[Layout('layouts.app')] class extends Component
 
 @php
     $isWelcomeSectionType = in_array($sectionType, [PageSectionType::Welcome->value, PageSectionType::WelcomeUpcomingEvent->value], true);
+    $isHeroSectionType = $sectionType === PageSectionType::Hero->value;
 @endphp
 
 <main id="admin-main" class="p-4 sm:p-6 lg:p-8">
@@ -437,11 +560,67 @@ new #[Layout('layouts.app')] class extends Component
                         @endforeach
                     </flux:select>
                     <flux:input wire:model="name" :label="__('Internal name')" required />
-                    <flux:input wire:model="heading" :label="$isWelcomeSectionType ? __('Welcome Header') : __('Heading')" />
+                    <flux:input wire:model="heading" :label="$isWelcomeSectionType ? __('Welcome Header') : ($isHeroSectionType ? __('Main heading') : __('Heading'))" />
                     @unless($isWelcomeSectionType)
-                        <flux:input wire:model="subheading" :label="__('Subheading')" />
+                        <flux:input wire:model="subheading" :label="$isHeroSectionType ? __('Celebration eyebrow') : __('Subheading')" />
                     @endunless
-                    <flux:textarea wire:model="content" :label="$isWelcomeSectionType ? __('Welcome Message') : __('Content')" rows="6" />
+                    <flux:textarea wire:model="content" :label="$isWelcomeSectionType ? __('Welcome Message') : ($isHeroSectionType ? __('Description') : __('Content'))" rows="6" />
+
+                    @if($isHeroSectionType)
+                        <div class="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-zinc-700">
+                            <div>
+                                <flux:heading>{{ __('Hero design') }}</flux:heading>
+                                <flux:text class="mt-1">{{ __('Configure the public homepage hero without editing JSON.') }}</flux:text>
+                            </div>
+
+                            <flux:select wire:model.live="heroVariant" :label="__('Variant')">
+                                <flux:select.option value="default">{{ __('Default') }}</flux:select.option>
+                                <flux:select.option value="anniversary">{{ __('20th Anniversary') }}</flux:select.option>
+                            </flux:select>
+
+                            @if($heroVariant === 'anniversary')
+                                <div class="grid gap-4 sm:grid-cols-2">
+                                    <flux:input wire:model="heroAnniversaryNumber" :label="__('Anniversary number')" maxlength="20" />
+                                    <flux:input wire:model="heroAnniversaryUnit" :label="__('Anniversary unit')" maxlength="30" />
+                                </div>
+                                <flux:input wire:model="heroScriptHeading" :label="__('Script heading')" maxlength="100" />
+                                <flux:textarea wire:model="heroTheme" :label="__('Anniversary theme')" rows="3" maxlength="500" />
+
+                                <div class="space-y-3">
+                                    <div>
+                                        <flux:heading size="sm">{{ __('Anniversary emblem') }}</flux:heading>
+                                        <flux:text class="mt-1">{{ __('Choose one active, public image from the Media Library.') }}</flux:text>
+                                    </div>
+                                    <livewire:media-picker
+                                        wire:model="heroEmblemMediaIds"
+                                        :allowed-types="[MediaType::Image->value]"
+                                        :multiple="false"
+                                        :maximum="1"
+                                        collection="homepage-anniversary-emblem"
+                                        :allow-upload="false"
+                                        wire:key="homepage-anniversary-emblem-picker"
+                                    />
+                                    <flux:error name="heroEmblemMediaIds" />
+                                    <flux:error name="heroEmblemMediaIds.*" />
+
+                                    <div class="grid min-h-40 place-items-center overflow-hidden rounded-xl bg-slate-100 p-4 dark:bg-zinc-800">
+                                        @if($this->selectedHeroEmblemMedia?->publicImageUrl())
+                                            <img src="{{ $this->selectedHeroEmblemMedia->publicImageUrl() }}" alt="" class="max-h-40 max-w-full object-contain">
+                                        @else
+                                            <p class="text-center text-sm text-slate-500 dark:text-zinc-400">{{ __('No anniversary emblem selected.') }}</p>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endif
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:input wire:model="heroPrimaryLabel" :label="__('Primary CTA label')" maxlength="100" />
+                                <flux:input wire:model="heroPrimaryUrl" :label="__('Primary CTA URL')" maxlength="2048" />
+                                <flux:input wire:model="heroSecondaryLabel" :label="__('Secondary CTA label')" maxlength="100" />
+                                <flux:input wire:model="heroSecondaryUrl" :label="__('Secondary CTA URL')" maxlength="2048" />
+                            </div>
+                        </div>
+                    @endif
 
                     @if($isWelcomeSectionType)
                         <flux:input wire:model="welcomeSignature" :label="__('Signature')" maxlength="255" />
@@ -490,7 +669,16 @@ new #[Layout('layouts.app')] class extends Component
                     @endif
 
                     @unless($isWelcomeSectionType)
-                        <flux:textarea wire:model="settings" :label="__('Section settings (JSON)')" rows="9" class="font-mono text-sm" description="{{ __('Only validated JSON for the selected approved section type is stored.') }}" />
+                        @if($isHeroSectionType)
+                            <details class="rounded-xl border border-slate-200 p-4 dark:border-zinc-700">
+                                <summary class="cursor-pointer text-sm font-semibold">{{ __('Advanced hero settings') }}</summary>
+                                <div class="mt-4">
+                                    <flux:textarea wire:model="settings" :label="__('Section settings (JSON)')" rows="9" class="font-mono text-sm" description="{{ __('Only optional, validated display settings belong here. Common hero settings are configured above.') }}" />
+                                </div>
+                            </details>
+                        @else
+                            <flux:textarea wire:model="settings" :label="__('Section settings (JSON)')" rows="9" class="font-mono text-sm" description="{{ __('Only validated JSON for the selected approved section type is stored.') }}" />
+                        @endif
                     @endunless
                     <flux:switch wire:model="isVisible" :label="__('Visible')" />
                     <div class="flex gap-2">

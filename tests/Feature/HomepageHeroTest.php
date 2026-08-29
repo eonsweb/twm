@@ -55,7 +55,10 @@ function saveHomepageHero(User $administrator, Page $page, array $overrides = []
         ->set('heading', 'Welcome Home')
         ->set('subheading', 'Believe, belong, become')
         ->set('content', '<p>Join us this Sunday.</p>')
-        ->set('settings', '{"primary_label":"Plan Your Visit","primary_url":"/contact"}')
+        ->set('heroVariant', 'default')
+        ->set('heroPrimaryLabel', 'Plan Your Visit')
+        ->set('heroPrimaryUrl', '/contact')
+        ->set('settings', '{}')
         ->set('backgroundMediaIds', $overrides['backgroundMediaIds'] ?? [])
         ->set('backgroundAlt', $overrides['backgroundAlt'] ?? '')
         ->call('save')
@@ -69,6 +72,117 @@ test('an authorized administrator can access the homepage sections editor', func
         ->get(route('pages.sections', $page))
         ->assertOk()
         ->assertSee('Add section');
+});
+
+test('administrators can configure and reload the anniversary hero with media library assets', function (): void {
+    $page = homepageHeroPage();
+    $administrator = homepageHeroAdministrator();
+    $background = homepageHeroImage(['name' => 'Anniversary congregation']);
+    $emblem = homepageHeroImage(['name' => '20 years anniversary emblem']);
+
+    Livewire::actingAs($administrator)
+        ->test('pages::pages.sections', ['page' => $page])
+        ->set('sectionType', 'hero')
+        ->set('name', 'Homepage hero')
+        ->set('heading', '20th Anniversary')
+        ->set('subheading', 'CELEBRATING 20 YEARS')
+        ->set('content', '<p>We celebrate two decades of grace.</p>')
+        ->set('heroVariant', 'anniversary')
+        ->set('heroAnniversaryNumber', '20')
+        ->set('heroAnniversaryUnit', 'YEARS')
+        ->set('heroScriptHeading', 'Celebration')
+        ->set('heroTheme', 'Your Faithfulness and Grace Has Brought Us This Far')
+        ->set('heroPrimaryLabel', 'Join the Celebration')
+        ->set('heroPrimaryUrl', '/events/anniversary')
+        ->set('heroSecondaryLabel', 'View Anniversary Events')
+        ->set('heroSecondaryUrl', '/events?type=anniversary')
+        ->set('heroEmblemMediaIds', [$emblem->id])
+        ->set('backgroundMediaIds', [$background->id])
+        ->set('backgroundAlt', 'The anniversary congregation')
+        ->set('settings', '{"show_scroll_indicator":false}')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $section = $page->sections()->where('section_type', 'hero')->firstOrFail();
+
+    expect($section->background_image_id)->toBe($background->id)
+        ->and($section->settings)->toMatchArray([
+            'variant' => 'anniversary',
+            'anniversary_number' => '20',
+            'anniversary_unit' => 'YEARS',
+            'script_heading' => 'Celebration',
+            'theme' => 'Your Faithfulness and Grace Has Brought Us This Far',
+            'emblem_media_id' => $emblem->id,
+            'primary_label' => 'Join the Celebration',
+            'primary_url' => '/events/anniversary',
+            'secondary_label' => 'View Anniversary Events',
+            'secondary_url' => '/events?type=anniversary',
+            'show_scroll_indicator' => false,
+        ]);
+
+    Livewire::actingAs($administrator)
+        ->test('pages::pages.sections', ['page' => $page])
+        ->call('edit', $section->id)
+        ->assertSee('Variant')
+        ->assertSee('Script heading')
+        ->assertSee('Anniversary theme')
+        ->assertSee('Anniversary emblem')
+        ->assertSee('Primary CTA label')
+        ->assertSee('Secondary CTA URL')
+        ->assertSet('heroVariant', 'anniversary')
+        ->assertSet('heroScriptHeading', 'Celebration')
+        ->assertSet('heroTheme', 'Your Faithfulness and Grace Has Brought Us This Far')
+        ->assertSet('heroEmblemMediaIds', [$emblem->id])
+        ->assertSet('backgroundMediaIds', [$background->id]);
+});
+
+test('the public anniversary hero resolves content media and dynamic brand colors', function (): void {
+    app(SettingManager::class)->initializeDefaults();
+    app(SettingManager::class)->put('branding', 'primary_color', '#572033');
+    app(SettingManager::class)->put('branding', 'accent_color', '#f2c94c');
+
+    $page = homepageHeroPage();
+    $administrator = homepageHeroAdministrator();
+    $background = homepageHeroImage(['name' => 'Anniversary group photograph']);
+    $emblem = homepageHeroImage(['name' => 'Anniversary emblem', 'alt_text' => '20 years emblem']);
+
+    Livewire::actingAs($administrator)
+        ->test('pages::pages.sections', ['page' => $page])
+        ->set('sectionType', 'hero')
+        ->set('name', 'Homepage hero')
+        ->set('heading', '20th Anniversary')
+        ->set('subheading', 'CELEBRATING 20 YEARS')
+        ->set('content', '<p>Twenty years of faithfulness.</p>')
+        ->set('heroVariant', 'anniversary')
+        ->set('heroAnniversaryNumber', '20')
+        ->set('heroAnniversaryUnit', 'YEARS')
+        ->set('heroScriptHeading', 'Celebration')
+        ->set('heroTheme', 'Your Faithfulness and Grace Has Brought Us This Far')
+        ->set('heroPrimaryLabel', 'Join the Celebration')
+        ->set('heroPrimaryUrl', '/events/celebration')
+        ->set('heroSecondaryLabel', 'View Anniversary Events')
+        ->set('heroSecondaryUrl', '/events')
+        ->set('heroEmblemMediaIds', [$emblem->id])
+        ->set('backgroundMediaIds', [$background->id])
+        ->set('settings', '{}')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('20th Anniversary')
+        ->assertSee('Celebration')
+        ->assertSee('Your Faithfulness and Grace Has Brought Us This Far')
+        ->assertSee('Twenty years of faithfulness.')
+        ->assertSee('Join the Celebration')
+        ->assertSee('View Anniversary Events')
+        ->assertSee(Storage::disk('public')->url($background->path), false)
+        ->assertSee(Storage::disk('public')->url($emblem->path), false)
+        ->assertSee('alt="20 years emblem"', false)
+        ->assertSee('--hero-primary: #572033', false)
+        ->assertSee('--hero-accent: #f2c94c', false)
+        ->assertSee('overflow-hidden', false)
+        ->assertSee('flex-col', false);
 });
 
 test('an unauthorized user cannot access or update homepage hero settings', function (): void {

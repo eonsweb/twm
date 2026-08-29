@@ -7,6 +7,24 @@ use App\Models\PageSection;
 
 final class HomepageHero
 {
+    /** @return list<string> */
+    public function editableSettingKeys(): array
+    {
+        return [
+            'variant',
+            'anniversary_number',
+            'anniversary_unit',
+            'eyebrow',
+            'script_heading',
+            'theme',
+            'emblem_media_id',
+            'primary_label',
+            'primary_url',
+            'secondary_label',
+            'secondary_url',
+        ];
+    }
+
     /** @return array<string, mixed> */
     public function defaults(): array
     {
@@ -48,13 +66,20 @@ final class HomepageHero
     /** @return array<string, mixed> */
     public function resolve(PageSection $section): array
     {
-        $settings = $this->withDefaults([
-            ...($section->settings ?? []),
-            ...array_filter([
+        $storedSettings = $section->settings ?? [];
+        $isLegacyHomepageHero = ! array_key_exists('variant', $storedSettings)
+            && $section->heading === 'Welcome to Triumphant World Ministry'
+            && $section->subheading === 'A place to believe, belong, and become';
+        $sectionContent = $isLegacyHomepageHero
+            ? []
+            : array_filter([
                 'eyebrow' => $section->subheading,
                 'heading' => $section->heading,
                 'description' => $section->content,
-            ], fn (mixed $value): bool => filled($value)),
+            ], fn (mixed $value): bool => filled($value));
+        $settings = $this->withDefaults([
+            ...($isLegacyHomepageHero ? [] : $storedSettings),
+            ...$sectionContent,
         ]);
         $emblemMediaId = data_get($settings, 'emblem_media_id');
         $emblem = filled($emblemMediaId)
