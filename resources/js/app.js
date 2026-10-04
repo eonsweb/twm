@@ -1,4 +1,5 @@
 import Swiper from 'swiper';
+import './hero-carousel';
 import { Navigation } from 'swiper/modules';
 
 import 'swiper/css';
@@ -99,7 +100,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         updateImage() {
-            const image = this.$refs.image;
+            const image = this.$refs.image ?? this.$el.querySelector('.hero-parallax-image');
 
             if (! image || this.motionQuery.matches) {
                 if (image) {

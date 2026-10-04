@@ -182,7 +182,15 @@ test('the public anniversary hero resolves content media and dynamic brand color
         ->assertSee('--hero-primary: #572033', false)
         ->assertSee('--hero-accent: #f2c94c', false)
         ->assertSee('overflow-hidden', false)
-        ->assertSee('flex-col', false);
+        ->assertSee('flex-col', false)
+        ->assertSee('hero-animate hero-animate-delay-100', false)
+        ->assertSee('hero-animate hero-animate-delay-200', false)
+        ->assertSee('hero-animate hero-animate-delay-300', false)
+        ->assertSee('hero-animate hero-animate-delay-400', false)
+        ->assertSee('hero-animate hero-animate-delay-500', false)
+        ->assertSee('hero-animate hero-animate-delay-600', false)
+        ->assertSee('hero-animate hero-animate-delay-700', false)
+        ->assertSee('hero-animate hero-animate-delay-800', false);
 });
 
 test('an unauthorized user cannot access or update homepage hero settings', function (): void {

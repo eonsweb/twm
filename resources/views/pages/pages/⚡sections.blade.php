@@ -512,6 +512,10 @@ new #[Layout('layouts.app')] class extends Component
             </x-slot:actions>
         </x-admin.page-header>
 
+        @if($page->is_homepage)
+            <livewire:pages::pages.hero-slides :page="$page" :key="'hero-slides-'.$page->id" />
+        @endif
+
         <div class="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)]">
             <div class="space-y-3">
                 @forelse($page->sections as $section)
@@ -525,6 +529,9 @@ new #[Layout('layouts.app')] class extends Component
                             <p class="mt-1 truncate text-sm text-slate-500">{{ $section->heading }}</p>
                         </div>
                         <div class="flex flex-wrap gap-2">
+                            @if($page->is_homepage && $section->section_type === PageSectionType::Hero)
+                                <flux:button size="sm" href="#homepage-hero-slides">{{ __('Manage slides') }}</flux:button>
+                            @endif
                             @if($loop->first)
                                 <flux:button size="sm" icon="arrow-up" disabled class="disabled:cursor-not-allowed disabled:opacity-50" :tooltip="__('Move section up')" :aria-label="__('Move :name up', ['name' => $section->name])" />
                             @else
@@ -567,6 +574,9 @@ new #[Layout('layouts.app')] class extends Component
                     <flux:textarea wire:model="content" :label="$isWelcomeSectionType ? __('Welcome Message') : ($isHeroSectionType ? __('Description') : __('Content'))" rows="6" />
 
                     @if($isHeroSectionType)
+                        @if($page->is_homepage)
+                            <flux:text>{{ __('These settings are the fallback shown when no hero slides are eligible. Use Hero slides above to manage carousel content.') }}</flux:text>
+                        @endif
                         <div class="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-zinc-700">
                             <div>
                                 <flux:heading>{{ __('Hero design') }}</flux:heading>

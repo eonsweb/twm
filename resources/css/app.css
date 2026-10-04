@@ -55,7 +55,62 @@
     display: none !important;
 }
 
+@keyframes hero-fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(1.25rem);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero-animate {
+    opacity: 0;
+    animation: hero-fade-up 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.hero-animate-delay-100 {
+    animation-delay: 100ms;
+}
+
+.hero-animate-delay-200 {
+    animation-delay: 200ms;
+}
+
+.hero-animate-delay-300 {
+    animation-delay: 300ms;
+}
+
+.hero-animate-delay-400 {
+    animation-delay: 400ms;
+}
+
+.hero-animate-delay-500 {
+    animation-delay: 500ms;
+}
+
+.hero-animate-delay-600 {
+    animation-delay: 600ms;
+}
+
+.hero-animate-delay-700 {
+    animation-delay: 700ms;
+}
+
+.hero-animate-delay-800 {
+    animation-delay: 800ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
+    .hero-animate {
+        opacity: 1;
+        transform: none;
+        animation: none;
+    }
+
     .hero-parallax-image {
         transform: none !important;
         will-change: auto;
@@ -166,3 +221,50 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+.homepage-hero-swiper .swiper-slide {
+    height: auto;
+}
+
+.homepage-hero-swiper .swiper-slide > section {
+    height: 100%;
+}
+
+.homepage-hero-swiper.swiper-initialized .swiper-slide:not(.hero-slide-active) .hero-animate {
+    animation: none;
+}
+
+.homepage-hero-swiper .swiper-pagination-bullet {
+    width: 10px;
+    height: 10px;
+    background: white;
+    opacity: .6;
+}
+
+.homepage-hero-swiper .swiper-pagination {
+    width: auto;
+    left: 1rem;
+    bottom: 1.25rem;
+}
+
+.homepage-hero-swiper .swiper-pagination-bullet-active {
+    background: var(--swiper-pagination-color);
+    opacity: 1;
+}
+
+.homepage-hero-swiper a:focus-visible,
+.homepage-hero-swiper .swiper-pagination-bullet:focus-visible {
+    outline: 2px solid white;
+    outline-offset: 4px;
+}
+
+.homepage-hero-swiper:not(.swiper-initialized) .swiper-slide:not(:first-child) {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .homepage-hero-swiper .swiper-wrapper,
+    .homepage-hero-swiper .swiper-slide {
+        transition-duration: 0ms !important;
+    }
+}
