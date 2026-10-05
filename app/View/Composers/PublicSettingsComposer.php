@@ -46,7 +46,7 @@ class PublicSettingsComposer
             fn () => Page::query()->publiclyVisible()->where('show_in_navigation', true)->where('is_homepage', false)->orderBy('navigation_order')->orderBy('title')->get(['title', 'slug', 'navigation_label']),
         ));
 
-        if ($view->name() === 'welcome') {
+        if (in_array($view->name(), ['welcome', 'layouts.public'], true)) {
             $view->with(
                 'publicServiceSchedules',
                 Cache::rememberForever(

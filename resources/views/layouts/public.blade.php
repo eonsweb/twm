@@ -9,7 +9,7 @@
         @include('partials.head')
         @stack('meta')
     </head>
-    <body class="font-body min-h-screen bg-white text-zinc-950 antialiased">
+    <body style="--twm-primary: {{ data_get($publicSettings, 'branding.primary_color', '#681c2d') }}; --twm-accent: {{ data_get($publicSettings, 'branding.accent_color', '#e8b949') }}" class="font-body min-h-screen bg-white text-zinc-950 antialiased">
         <a href="#public-main" class="fixed start-4 top-4 z-[60] -translate-y-24 rounded-md bg-white px-4 py-2 text-sm font-bold text-zinc-950 shadow-xl transition focus:translate-y-0">
             {{ __('Skip to main content') }}
         </a>
@@ -18,7 +18,7 @@
 
         <main id="public-main">{{ $slot }}</main>
 
-        <x-public.site-footer :settings="$publicSettings" :media-urls="$brandingMediaUrls" />
+        <x-public.site-footer :settings="$publicSettings" :media-urls="$brandingMediaUrls" :schedules="$publicServiceSchedules ?? collect()" />
 
         @fluxScripts
     </body>

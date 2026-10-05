@@ -1,6 +1,6 @@
 import Swiper from 'swiper';
-import './hero-carousel';
-import { Navigation } from 'swiper/modules';
+import './homepage';
+import { A11y, Keyboard, Navigation } from 'swiper/modules';
 
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -16,7 +16,9 @@ const initializeMinistriesSwipers = () => {
         }
 
         new Swiper(slider, {
-            modules: [Navigation],
+            modules: [A11y, Keyboard, Navigation],
+            keyboard: { enabled: true, onlyInViewport: true },
+            a11y: { enabled: true },
             slidesPerView: 1.15,
             spaceBetween: 12,
             grabCursor: true,
@@ -30,16 +32,20 @@ const initializeMinistriesSwipers = () => {
             breakpoints: {
                 480: { slidesPerView: 1.5, spaceBetween: 14 },
                 640: { slidesPerView: 2.2, spaceBetween: 16 },
-                768: { slidesPerView: 3, spaceBetween: 18 },
-                1024: { slidesPerView: 4, spaceBetween: 20 },
-                1280: { slidesPerView: 5, spaceBetween: 20 },
-                1536: { slidesPerView: 6, spaceBetween: 22 },
+                768: { slidesPerView: 2, spaceBetween: 18 },
+                1024: { slidesPerView: 3, spaceBetween: 20 },
+                1280: { slidesPerView: 3, spaceBetween: 20 },
+                1536: { slidesPerView: 4, spaceBetween: 22 },
             },
         });
     });
 };
 
 document.addEventListener('livewire:navigated', initializeMinistriesSwipers);
+document.addEventListener('DOMContentLoaded', initializeMinistriesSwipers);
+document.addEventListener('livewire:navigating', () => {
+    document.querySelectorAll('[data-ministries-swiper]').forEach((slider) => slider.swiper?.destroy(true, true));
+});
 
 document.addEventListener('alpine:init', () => {
     window.Alpine.data('navbar', () => ({

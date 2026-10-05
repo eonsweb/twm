@@ -53,6 +53,20 @@ new #[Layout('layouts.app')] class extends Component
     /** @var list<int> */
     public array $heroEmblemMediaIds = [];
 
+    /** @var array<string, list<int>> */
+    public array $sectionMediaIds = [];
+
+    /** @return array<string, string> */
+    public function mediaFields(): array
+    {
+        return match ($this->sectionType) {
+            'hero' => ['hero_video' => 'Hero video', 'hero_poster' => 'Hero poster / fallback image'],
+            'next-steps' => ['salvation' => 'Salvation image', 'prayer' => 'Prayer image', 'join' => 'Join TWM image', 'give' => 'Giving image'],
+            'prayer-giving' => ['prayer_background' => 'Prayer background', 'giving_background' => 'Giving background'],
+            default => [],
+        };
+    }
+
     public function mount(Page $page, HomepageSectionSynchronizer $homepageSections): void
     {
         Gate::authorize('manageSections', $page);
@@ -94,12 +108,18 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->sectionId = $section->id;
         $this->sectionType = $section->section_type->value;
+        $this->sectionMediaIds = [];
+        foreach ($this->mediaFields() as $key => $label) {
+            $id = data_get($section->settings, $key.'_media_id');
+            $this->sectionMediaIds[$key] = filled($id) ? [(int) $id] : [];
+        }
         $this->name = $section->name;
         $this->heading = (string) ($hero['heading'] ?? $section->heading ?? '');
         $this->subheading = (string) ($hero['eyebrow'] ?? $section->subheading ?? '');
         $this->content = (string) ($hero['description'] ?? $section->content ?? '');
         $excludedSettings = [
             'background_alt',
+            ...array_map(fn (string $key): string => $key.'_media_id', array_keys($this->mediaFields())),
             'pastor_image_alt',
             'signature_text',
             'pastor_name',
@@ -151,6 +171,9 @@ new #[Layout('layouts.app')] class extends Component
             'content' => ['nullable', 'string', 'max:200000'],
             'settings' => ['required', 'json'],
             'isVisible' => ['boolean'],
+            'sectionMediaIds' => ['array'],
+            'sectionMediaIds.*' => ['array', 'max:1'],
+            'sectionMediaIds.*.*' => ['integer', Rule::exists(Media::class, 'id')->withoutTrashed()],
             'backgroundMediaIds' => ['array', 'max:1'],
             'backgroundMediaIds.*' => ['integer', 'distinct', Rule::exists(Media::class, 'id')->withoutTrashed()],
             'backgroundAlt' => ['nullable', 'string', 'max:255'],
@@ -190,6 +213,19 @@ new #[Layout('layouts.app')] class extends Component
             ? $this->validatedBackgroundMedia()
             : null;
         $settings = $this->validatedSettings($validated['sectionType'], $validated['settings']);
+        foreach ($this->mediaFields() as $key => $label) {
+            $id = $this->sectionMediaIds[$key][0] ?? null;
+            $media = $id ? Media::query()->findOrFail($id) : null;
+            if ($media) {
+                Gate::authorize('view', $media);
+                $video = $key === 'hero_video';
+                if (! \App\Models\HomepageHeroSlide::usableMedia($media, ! $video)
+                    || ($video && $media->media_type !== MediaType::Video)) {
+                    throw ValidationException::withMessages(['sectionMediaIds.'.$key => __('Choose an available, active, public :type from the Media Library.', ['type' => $video ? 'MP4, WebM or Ogg video' : 'image'])]);
+                }
+            }
+            $settings[$key.'_media_id'] = $media?->id;
+        }
 
         if ($validated['sectionType'] === PageSectionType::Hero->value) {
             $emblemMedia = $this->validatedHeroEmblemMedia();
@@ -368,6 +404,7 @@ new #[Layout('layouts.app')] class extends Component
             'heroSecondaryLabel',
             'heroSecondaryUrl',
             'heroEmblemMediaIds',
+            'sectionMediaIds',
         );
         $this->sectionType = 'rich-text';
         $this->settings = '{}';
@@ -480,6 +517,15 @@ new #[Layout('layouts.app')] class extends Component
                 'pastor_name' => ['nullable', 'string', 'max:255'],
                 'pastor_title' => ['nullable', 'string', 'max:255'],
             ],
+            'next-steps' => [],
+            'prayer-giving' => [
+                'prayer_heading' => ['nullable', 'string', 'max:255'],
+                'prayer_description' => ['nullable', 'string', 'max:2000'],
+                'prayer_button_text' => ['nullable', 'string', 'max:100'],
+                'giving_heading' => ['nullable', 'string', 'max:255'],
+                'giving_description' => ['nullable', 'string', 'max:2000'],
+                'giving_button_text' => ['nullable', 'string', 'max:100'],
+            ],
             'call-to-action', 'donation-callout', 'prayer-request-callout' => [
                 'button_label' => ['nullable', 'string', 'max:100'],
                 'url' => ['nullable', 'string', 'max:2048'],
@@ -569,13 +615,22 @@ new #[Layout('layouts.app')] class extends Component
                     <flux:input wire:model="name" :label="__('Internal name')" required />
                     <flux:input wire:model="heading" :label="$isWelcomeSectionType ? __('Welcome Header') : ($isHeroSectionType ? __('Main heading') : __('Heading'))" />
                     @unless($isWelcomeSectionType)
-                        <flux:input wire:model="subheading" :label="$isHeroSectionType ? __('Celebration eyebrow') : __('Subheading')" />
+                        <flux:input wire:model="subheading" :label="$isHeroSectionType ? __('Hero eyebrow') : __('Subheading')" />
                     @endunless
                     <flux:textarea wire:model="content" :label="$isWelcomeSectionType ? __('Welcome Message') : ($isHeroSectionType ? __('Description') : __('Content'))" rows="6" />
 
+                    @foreach($this->mediaFields() as $key => $label)
+                        <div class="space-y-3" wire:key="section-media-{{ $sectionId }}-{{ $key }}">
+                            <flux:heading size="sm">{{ __($label) }}</flux:heading>
+                            <livewire:media-picker wire:model="sectionMediaIds.{{ $key }}" :allowed-types="[$key === 'hero_video' ? MediaType::Video->value : MediaType::Image->value]" :multiple="false" :maximum="1" :allow-upload="false" :key="'section-picker-'.$sectionId.'-'.$key" />
+                            <flux:error :name="'sectionMediaIds.'.$key" />
+                            <flux:error :name="'sectionMediaIds.'.$key.'.0'" />
+                        </div>
+                    @endforeach
+
                     @if($isHeroSectionType)
                         @if($page->is_homepage)
-                            <flux:text>{{ __('These settings are the fallback shown when no hero slides are eligible. Use Hero slides above to manage carousel content.') }}</flux:text>
+                            <flux:text>{{ __('Configure the cinematic hero here. Hero slides above appear as overlapping promotional messages below it.') }}</flux:text>
                         @endif
                         <div class="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-zinc-700">
                             <div>

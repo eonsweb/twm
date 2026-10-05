@@ -14,12 +14,14 @@ new #[Layout('layouts.public')] class extends Component
     public array $home = [];
     public ?Page $managedPage = null;
     public array $sectionData = [];
+    public array $configuredSectionTypes = [];
 
     public function mount(HomepageContent $content, SectionDataResolver $resolver): void
     {
         $this->home = $content->build();
         $this->managedPage = Page::query()->publiclyVisible()->where('is_homepage', true)->with(['sections' => fn ($query) => $query->where('is_visible', true)->with('backgroundImage'), 'ogImage'])->first();
         if ($this->managedPage) {
+            $this->configuredSectionTypes = $this->managedPage->sections()->pluck('section_type')->map(fn ($type) => $type->value)->all();
             foreach ($this->managedPage->sections as $section) {
                 $this->sectionData[$section->id] = $this->dataForSection($section, $resolver);
             }
@@ -86,7 +88,7 @@ new #[Layout('layouts.public')] class extends Component
     <script type="application/ld+json">{!! json_encode($structuredData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) !!}</script>
 @endpush
 
-<div>
+<div class="twm-home">
 @if ($managedPage)
 <article class="overflow-hidden bg-white" aria-label="{{ $managedPage->title }}">
     @unless($managedHero)
@@ -96,34 +98,44 @@ new #[Layout('layouts.public')] class extends Component
     @foreach($managedPage->sections as $section)
         @if($section->section_type === PageSectionType::Hero)
             <x-public.home.hero :settings="$settings" :section="$section" :page-title="$managedPage->title" wire:key="homepage-section-{{ $section->id }}" />
+        @elseif($section->section_type === PageSectionType::ServiceTimes)
+            <x-public.home.services :schedules="$home['serviceSchedules']" :settings="$settings" :section="$section" />
+            @unless(in_array('next-steps', $configuredSectionTypes, true))<x-public.home.next-steps />@endunless
+        @elseif($section->section_type === PageSectionType::FeaturedSermons)
+            <x-public.home.featured-sermon :sermon="collect($sectionData[$section->id]['items'] ?? [])->first()" :section="$section" />
+        @elseif($section->section_type === PageSectionType::NextSteps)
+            <x-public.home.next-steps :section="$section" :images="$sectionData[$section->id]['images'] ?? []" />
+        @elseif($section->section_type === PageSectionType::PrayerGiving)
+            <x-public.home.prayer-giving :settings="$sectionData[$section->id]['settings'] ?? []" :legacy-settings="$settings" :prayer-image-url="$sectionData[$section->id]['prayerImageUrl'] ?? null" :giving-image-url="$sectionData[$section->id]['givingImageUrl'] ?? null" />
         @else
             <x-public.page-section :section="$section" :data="$sectionData[$section->id] ?? []" wire:key="homepage-section-{{ $section->id }}" />
         @endif
     @endforeach
+    @unless(in_array('next-steps', $configuredSectionTypes, true) || in_array('service-times', $configuredSectionTypes, true))<x-public.home.next-steps />@endunless
+    @unless(in_array('prayer-giving', $configuredSectionTypes, true))<x-public.home.prayer-giving :legacy-settings="$settings" />@endunless
 </article>
 @else
 <div class="overflow-hidden bg-white">
     <x-public.home.hero :settings="$settings" :image-url="$home['heroImageUrl']" />
 
+    @if (collect(['welcome_upcoming_event', 'welcome', 'sermon_events'])->contains(fn (string $section): bool => in_array($section, $enabled, true)))
+        <x-public.home.welcome :leader="$home['welcomeLeader']" :settings="$settings" />
+    @endif
     @if (in_array('services', $enabled, true))
         <x-public.home.services :schedules="$home['serviceSchedules']" :settings="$settings" />
     @endif
-
-    @if (collect(['welcome_upcoming_event', 'welcome', 'sermon_events'])->contains(fn (string $section): bool => in_array($section, $enabled, true)))
-        <x-public.home.welcome-upcoming-event
-            :leader="$home['welcomeLeader']"
-            :settings="$settings"
-            :sermon="$home['latestSermon']"
-            :events="$home['upcomingEvents']"
-        />
+    <x-public.home.next-steps />
+    @if (collect(['welcome_upcoming_event', 'sermon_events'])->contains(fn (string $section): bool => in_array($section, $enabled, true)))
+        <x-public.home.upcoming-events :events="$home['upcomingEvents']" :view-all-url="route('public.events.index')" />
     @endif
-
     @if (in_array('ministries', $enabled, true))
         <x-public.home.ministries :ministries="$home['ministries']" />
     @endif
-
+    @if (collect(['welcome_upcoming_event', 'sermon_events'])->contains(fn (string $section): bool => in_array($section, $enabled, true)))
+        <x-public.home.featured-sermon :sermon="$home['latestSermon']" />
+    @endif
     @if (in_array('calls_to_action', $enabled, true))
-        <x-public.home.calls-to-action :settings="$settings" />
+        <x-public.home.prayer-giving :legacy-settings="$settings" />
     @endif
 
     @if (in_array('featured_book', $enabled, true))

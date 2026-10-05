@@ -1,4 +1,4 @@
-@props(['settings' => [], 'mediaUrls' => []])
+@props(['settings' => [], 'mediaUrls' => [], 'schedules' => []])
 
 @php
     $general = $settings['general'] ?? [];
@@ -9,20 +9,18 @@
     $socialNames = ['facebook' => 'Facebook', 'instagram' => 'Instagram', 'youtube' => 'YouTube', 'x' => 'X', 'tiktok' => 'TikTok'];
 @endphp
 
-<footer class="bg-zinc-950 text-zinc-300">
-    <div class="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
+<footer class="bg-[var(--twm-primary)] text-white/75">
+    <div class="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-2 lg:grid-cols-5 lg:px-8">
         <section aria-labelledby="footer-about">
             @if ($footerLogoUrl)
                 <img src="{{ $footerLogoUrl }}" alt="" class="mb-5 h-16 w-auto object-contain" loading="lazy">
             @endif
             <h2 id="footer-about" class="font-heading text-lg font-bold uppercase text-church-gold-300">{{ __('About Us') }}</h2>
             <p class="mt-3 text-sm leading-6">{{ ($church['mission'] ?? null) ?: ($general['meta_description'] ?? __('A Christ-centered ministry committed to prayer, worship, the Word, and transformed lives.')) }}</p>
+            <p class="mt-5 text-xs font-bold uppercase tracking-widest text-[var(--twm-accent)]">{{ $church['motto'] ?? __('The Land of Overflow') }}</p>
             <div class="mt-5 flex flex-wrap gap-3">
-                @foreach ($socialNames as $key => $label)
-                    @if (($social[$key.'_enabled'] ?? false) && filled($social[$key.'_url'] ?? null))
-                        <a href="{{ $social[$key.'_url'] }}" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-white hover:text-church-gold-300"><span class="sr-only">{{ $label }}</span>{{ mb_substr($label, 0, 2) }}</a>
-                    @endif
-                @endforeach
+                <x-public.home.social-links :social="$social" />
+
             </div>
         </section>
 
@@ -40,6 +38,10 @@
             </div>
         </section>
 
+        <section aria-labelledby="footer-services">
+            <h2 id="footer-services" class="font-heading text-lg font-bold uppercase text-church-gold-300">{{ __('Service Times') }}</h2>
+            <div class="mt-3 space-y-4 text-sm">@forelse($schedules as $schedule)<div><p class="font-semibold text-white">{{ $schedule->name }}</p><p>{{ $schedule->day_of_week }} &middot; {{ $schedule->formattedTime() }}</p></div>@empty<p>{{ __('Service times will be announced soon.') }}</p>@endforelse</div>
+        </section>
         <section aria-labelledby="footer-contact">
             <h2 id="footer-contact" class="font-heading text-lg font-bold uppercase text-church-gold-300">{{ __('Contact Us') }}</h2>
             <address class="mt-3 space-y-2 text-sm not-italic">
@@ -59,7 +61,7 @@
             </div>
         </section>
     </div>
-    <div class="border-t border-white/10 px-4 py-5 text-center text-xs text-zinc-500">
+    <div class="border-t border-white/10 px-4 py-5 text-center text-xs text-white/60">
         &copy; {{ now()->year }} {{ $general['copyright_text'] ?? ($church['official_name'] ?? config('app.name')) }}. {{ __('All rights reserved.') }}
     </div>
 </footer>

@@ -26,6 +26,8 @@ class SectionDataResolver
         $limit = min(24, max(1, (int) data_get($section->settings, 'limit', 6)));
 
         return match ($section->section_type->value) {
+            'prayer-giving' => app(PrayerGivingSection::class)->resolve($section),
+            'next-steps' => ['images' => \App\Models\Media::query()->images()->public()->active()->whereKey(array_filter(array_map(fn (string $key) => data_get($section->settings, $key.'_media_id'), ['salvation', 'prayer', 'join', 'give'])))->get()->keyBy('id')],
             'featured-sermons' => $this->featuredSermon($section),
             'upcoming-events' => $this->events($section, $limit),
             'latest-posts' => ['items' => Post::query()->publiclyVisible()->latest('published_at')->limit($limit)->get()],

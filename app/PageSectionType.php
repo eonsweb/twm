@@ -15,6 +15,8 @@ enum PageSectionType: string
     case LeadershipGrid = 'leadership-grid';
     case ServiceTimes = 'service-times';
     case Welcome = 'welcome';
+    case NextSteps = 'next-steps';
+    case PrayerGiving = 'prayer-giving';
     case WelcomeUpcomingEvent = 'welcome-upcoming-event';
     case ChurchLocations = 'church-locations';
     case Testimonials = 'testimonials';

@@ -12,6 +12,8 @@ final class HomepageHero
     {
         return [
             'variant',
+            'hero_video_media_id',
+            'hero_poster_media_id',
             'anniversary_number',
             'anniversary_unit',
             'eyebrow',
@@ -29,18 +31,18 @@ final class HomepageHero
     public function defaults(): array
     {
         return [
-            'variant' => 'anniversary',
+            'variant' => 'default',
             'anniversary_number' => '20',
             'anniversary_unit' => 'YEARS',
-            'eyebrow' => 'CELEBRATING 20 YEARS',
-            'heading' => '20th Anniversary',
-            'script_heading' => 'Celebration',
-            'theme' => 'Your Faithfulness and Grace Has Brought Us This Far',
-            'description' => '<p>We give all glory to God for two decades of His unfailing love, grace, and faithfulness. Join us as we celebrate His goodness through the years and look forward to greater things ahead.</p>',
-            'primary_label' => 'JOIN THE CELEBRATION',
-            'primary_url' => route('public.events.show', '20th-anniversary-celebration', false),
-            'secondary_label' => 'VIEW ANNIVERSARY EVENTS',
-            'secondary_url' => route('public.events.index', ['type' => 'anniversary'], false),
+            'eyebrow' => 'WELCOME TO TWM',
+            'heading' => 'THE LAND OF OVERFLOW',
+            'script_heading' => '',
+            'theme' => '',
+            'description' => '<p>A place to encounter God, discover purpose and live victoriously.</p>',
+            'primary_label' => 'WATCH NOW',
+            'primary_url' => route('public.sermons.index', absolute: false),
+            'secondary_label' => 'PLAN YOUR VISIT',
+            'secondary_url' => '#visit',
             'emblem_media_id' => null,
             'show_emblem' => true,
             'show_theme' => true,
@@ -89,6 +91,18 @@ final class HomepageHero
         return [
             'settings' => $settings,
             'emblem' => $emblem?->publicImageUrl() ? $emblem : null,
+            'video' => $this->video($settings),
+            'poster' => Media::query()->images()->public()->active()->find(data_get($settings, 'hero_poster_media_id')),
+            'slides' => \App\Models\HomepageHeroSlide::query()->where('page_id', $section->page_id)->visible()->with(['media', 'mobileMedia', 'videoPosterMedia', 'emblemMedia'])->orderBy('sort_order')->orderBy('id')->get(),
         ];
+    }
+
+    /** @param array<string, mixed> $settings */
+    private function video(array $settings): ?Media
+    {
+        $media = Media::query()->find(data_get($settings, 'hero_video_media_id'));
+
+        return $media?->media_type === \App\MediaType::Video && \App\Models\HomepageHeroSlide::usableMedia($media)
+            ? $media : null;
     }
 }

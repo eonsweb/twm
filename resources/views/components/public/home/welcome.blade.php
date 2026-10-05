@@ -32,36 +32,39 @@
 @endphp
 
 @if($hasWelcomeContent)
-<section id="about" @if($welcomeHeading) aria-labelledby="welcome-heading" @else aria-label="{{ __('Welcome') }}" @endif class="bg-stone-50">
-    <div class="mx-auto max-w-7xl overflow-hidden">
-        <div class="grid lg:grid-cols-[minmax(0,0.47fr)_minmax(0,0.53fr)]">
+<section id="about" @if($welcomeHeading) aria-labelledby="welcome-heading" @else aria-label="{{ __('Welcome') }}" @endif class="relative overflow-hidden bg-[#090909] py-20 text-white lg:py-28">
+    <span aria-hidden="true" class="pointer-events-none absolute inset-x-0 top-0 whitespace-nowrap text-center text-[16vw] font-black uppercase leading-none tracking-tighter text-white/[0.035]">Who we are</span>
+    <div class="twm-container relative">
+        <div class="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
             @if($pastorImageUrl)
-                <div class="relative min-h-80 overflow-hidden bg-stone-200 sm:min-h-[30rem] lg:min-h-[36rem]">
+                <div class="relative min-h-80 overflow-hidden bg-white/5 sm:min-h-[30rem] lg:order-2 lg:min-h-[36rem]">
                     <img src="{{ $pastorImageUrl }}" alt="{{ $pastorImageAlt }}" class="absolute inset-0 size-full object-cover object-top" loading="lazy">
                 </div>
             @endif
-            <div @class(['flex flex-col justify-center px-6 py-10 sm:px-10 sm:py-14 lg:px-14', 'lg:col-span-2' => ! $pastorImageUrl])>
+            <div @class(['flex flex-col justify-center py-8', 'lg:col-span-2' => ! $pastorImageUrl])>
+                <p class="twm-eyebrow mb-5">{{ __('Who We Are') }}</p>
                 @if($welcomeHeading)
-                    <h2 id="welcome-heading" class="font-heading text-3xl font-bold tracking-tight text-church-maroon-950 sm:text-4xl lg:text-5xl">{{ $welcomeHeading }}</h2>
+                    <h2 id="welcome-heading" class="twm-heading">{{ $welcomeHeading }}</h2>
                 @endif
 
                 @if($welcomeMessageHasHtml)
-                    <div class="prose prose-zinc mt-6 max-w-none font-body leading-8 [&_p]:my-3">
+                    <div class="prose prose-invert mt-6 max-w-none font-body leading-8 [&_p]:my-3">
                         {!! app(\App\Blog\HtmlSanitizer::class)->sanitize($welcomeMessage) !!}
                     </div>
                 @elseif(filled($welcomeMessage))
-                    <p class="mt-6 whitespace-pre-line font-body leading-8 text-zinc-700">{{ $welcomeMessage }}</p>
+                    <p class="mt-6 whitespace-pre-line font-body leading-8 text-white/70">{{ $welcomeMessage }}</p>
                 @endif
 
                 @if($signature)
                     <p class="mt-7 font-signature text-3xl leading-none text-church-gold-700 sm:text-4xl">{{ $signature }}</p>
                 @endif
                 @if($pastorName)
-                    <p class="mt-5 font-heading text-sm font-bold uppercase tracking-[0.08em] text-zinc-900">{{ $pastorName }}</p>
+                    <p class="mt-5 font-heading text-sm font-bold uppercase tracking-[0.08em] text-white">{{ $pastorName }}</p>
                 @endif
                 @if($pastorRole)
-                    <p class="mt-1 font-body text-xs font-semibold uppercase tracking-[0.08em] text-zinc-600">{{ $pastorRole }}</p>
+                    <p class="mt-1 font-body text-xs font-semibold uppercase tracking-[0.08em] text-white/60">{{ $pastorRole }}</p>
                 @endif
+                <a href="{{ route('public.contact') }}" wire:navigate class="mt-8 inline-flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-[var(--twm-accent)]">{{ __('Connect with TWM') }} <flux:icon.arrow-up-right class="size-5" /></a>
             </div>
         </div>
     </div>
