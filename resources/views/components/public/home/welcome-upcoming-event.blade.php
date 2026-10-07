@@ -4,10 +4,13 @@
     'sermon' => null,
     'events' => collect(),
     'section' => null,
+    'imageUrl' => null,
+    'aboutPage' => null,
+    'sermonImageUrl' => null,
 ])
 
 <div id="welcome-upcoming-event" class="w-full overflow-hidden">
-    <x-public.home.welcome :leader="$leader" :settings="$settings" :section="$section" />
+    <x-public.home.welcome :leader="$leader" :settings="$settings" :section="$section" :image-url="$imageUrl" :about-page="$aboutPage" />
 
     <section aria-label="{{ __('Latest sermon and upcoming events') }}" class="bg-church-green-900 text-white">
         <div class="mx-auto grid max-w-7xl lg:grid-cols-2">
@@ -16,8 +19,8 @@
 
                 @if ($sermon)
                     <a href="{{ route('public.sermons.show', $sermon) }}" wire:navigate aria-label="{{ __('Watch :title', ['title' => $sermon->title]) }}" class="group relative mt-4 block aspect-video overflow-hidden rounded-sm bg-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-church-gold-300">
-                        @if ($sermon->thumbnailUrl())
-                            <img src="{{ $sermon->thumbnailUrl() }}" alt="{{ __('Thumbnail for :title', ['title' => $sermon->title]) }}" class="size-full object-cover transition duration-500 group-hover:scale-105" loading="lazy">
+                        @if ($sermonImageUrl)
+                            <img src="{{ $sermonImageUrl }}" alt="{{ __('Thumbnail for :title', ['title' => $sermon->title]) }}" class="size-full object-cover transition duration-500 group-hover:scale-105" loading="lazy">
                         @else
                             <div class="size-full bg-gradient-to-br from-church-maroon-950 to-zinc-950"></div>
                         @endif

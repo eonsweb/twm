@@ -39,12 +39,17 @@ new #[Layout('layouts.public')] class extends Component
             return [
                 'settings' => $this->home['settings'],
                 'leader' => $this->home['welcomeLeader'],
+                'aboutPage' => $this->home['aboutPage'],
+                'imageUrl' => $this->home['welcomeImageUrl'],
             ];
         }
 
         if ($section->section_type === PageSectionType::FeaturedSermons
             && blank(data_get($section->settings, 'speaker_id'))) {
-            return ['items' => collect([$this->home['latestSermon']])->filter()];
+            return [
+                'items' => collect([$this->home['latestSermon']])->filter(),
+                'imageUrl' => app(\App\Pages\HomepageMedia::class)->image(null, data_get($section->settings, 'sermon_image_media_id')) ?: $this->home['sermonImageUrl'],
+            ];
         }
 
         if ($section->section_type === PageSectionType::FeaturedBook) {
@@ -102,7 +107,7 @@ new #[Layout('layouts.public')] class extends Component
             <x-public.home.services :schedules="$home['serviceSchedules']" :settings="$settings" :section="$section" />
             @unless(in_array('next-steps', $configuredSectionTypes, true))<x-public.home.next-steps />@endunless
         @elseif($section->section_type === PageSectionType::FeaturedSermons)
-            <x-public.home.featured-sermon :sermon="collect($sectionData[$section->id]['items'] ?? [])->first()" :section="$section" />
+            <x-public.home.featured-sermon :sermon="collect($sectionData[$section->id]['items'] ?? [])->first()" :section="$section" :image-url="$sectionData[$section->id]['imageUrl'] ?? null" />
         @elseif($section->section_type === PageSectionType::NextSteps)
             <x-public.home.next-steps :section="$section" :images="$sectionData[$section->id]['images'] ?? []" />
         @elseif($section->section_type === PageSectionType::PrayerGiving)
@@ -119,7 +124,7 @@ new #[Layout('layouts.public')] class extends Component
     <x-public.home.hero :settings="$settings" :image-url="$home['heroImageUrl']" />
 
     @if (collect(['welcome_upcoming_event', 'welcome', 'sermon_events'])->contains(fn (string $section): bool => in_array($section, $enabled, true)))
-        <x-public.home.welcome :leader="$home['welcomeLeader']" :settings="$settings" />
+        <x-public.home.welcome :leader="$home['welcomeLeader']" :settings="$settings" :about-page="$home['aboutPage']" :image-url="$home['welcomeImageUrl']" />
     @endif
     @if (in_array('services', $enabled, true))
         <x-public.home.services :schedules="$home['serviceSchedules']" :settings="$settings" />
@@ -129,10 +134,10 @@ new #[Layout('layouts.public')] class extends Component
         <x-public.home.upcoming-events :events="$home['upcomingEvents']" :view-all-url="route('public.events.index')" />
     @endif
     @if (in_array('ministries', $enabled, true))
-        <x-public.home.ministries :ministries="$home['ministries']" />
+        <x-public.home.ministries :ministries="$home['ministries']" :images="$home['ministryImages']" />
     @endif
     @if (collect(['welcome_upcoming_event', 'sermon_events'])->contains(fn (string $section): bool => in_array($section, $enabled, true)))
-        <x-public.home.featured-sermon :sermon="$home['latestSermon']" />
+        <x-public.home.featured-sermon :sermon="$home['latestSermon']" :image-url="$home['sermonImageUrl']" />
     @endif
     @if (in_array('calls_to_action', $enabled, true))
         <x-public.home.prayer-giving :legacy-settings="$settings" />

@@ -13,7 +13,7 @@
 <div data-cinematic-hero class="relative bg-[#090909] text-white">
     <section class="twm-hero relative isolate flex items-center overflow-hidden bg-[var(--twm-primary)]" aria-labelledby="homepage-hero-heading">
         @if($poster)
-            <img data-hero-poster src="{{ $poster }}" alt="" fetchpriority="high" class="absolute inset-0 -z-20 size-full object-cover">
+            <img data-hero-poster src="{{ $poster }}" alt="{{ data_get($content, 'background_alt', '') }}" fetchpriority="high" class="absolute inset-0 -z-20 size-full object-cover">
         @endif
         @if($video)
             <video data-background-video data-src="{{ $video->publicUrl() }}" data-type="{{ $video->mime_type }}" autoplay muted loop playsinline preload="metadata" @if($poster) poster="{{ $poster }}" @endif aria-hidden="true" tabindex="-1" class="absolute inset-0 -z-20 size-full object-cover"></video>
@@ -23,7 +23,13 @@
         <div class="twm-container w-full pb-44 pt-40 sm:pb-48 lg:pt-48">
             <div class="max-w-4xl lg:pr-16">
                 <p class="twm-eyebrow">{{ $content['eyebrow'] ?? __('Welcome to TWM') }}</p>
-                <h1 id="homepage-hero-heading" class="mt-6 text-[clamp(3.25rem,8.5vw,8rem)] font-black uppercase leading-[0.92] tracking-[-0.055em] [overflow-wrap:anywhere]">{{ $heading }}</h1>
+                <h1 id="homepage-hero-heading" class="mt-6 text-[clamp(2.5rem,8.5vw,8rem)] font-black uppercase leading-[0.92] tracking-[-0.055em] [overflow-wrap:anywhere] sm:text-[clamp(3.25rem,8.5vw,8rem)]">{{ $heading }}</h1>
+                @if(filled(data_get($content, 'script_heading')))
+                    <p class="mt-4 font-signature text-4xl text-[var(--twm-accent)]">{{ $content['script_heading'] }}</p>
+                @endif
+                @if(data_get($content, 'show_emblem', true) && ($hero['emblem'] ?? null))
+                    <img src="{{ $hero['emblem']->publicImageUrl() }}" alt="{{ $hero['emblem']->alt_text }}" class="mt-5 h-20 w-auto object-contain">
+                @endif
                 @if(data_get($content, 'show_theme', true) && filled(data_get($content, 'theme')))
                     <p class="mt-5 max-w-xl text-xl text-[var(--twm-accent)]">{{ $content['theme'] }}</p>
                 @endif
@@ -54,8 +60,14 @@
                     @foreach($slides as $slide)
                         @php($slideImage = $slide->media?->publicImageUrl() ?: $slide->videoPosterMedia?->publicImageUrl())
                         <article class="swiper-slide !h-auto" wire:key="hero-message-{{ $slide->id }}">
-                            <div class="relative flex h-full min-h-64 flex-col justify-end overflow-hidden border border-white/20 bg-white/10 p-7 backdrop-blur-xl">
-                                @if($slideImage)<img src="{{ $slideImage }}" alt="{{ $slide->media?->alt_text }}" loading="lazy" class="absolute inset-0 -z-20 size-full object-cover">@endif
+                            <div class="relative isolate flex h-full min-h-64 flex-col justify-end overflow-hidden border border-white/20 bg-white/10 p-7 backdrop-blur-xl">
+                                @php($mobileImage = $slide->mobileMedia?->publicImageUrl())
+                                @if($slideImage || $mobileImage)
+                                    <picture class="absolute inset-0 -z-20 size-full">
+                                        @if($mobileImage)<source media="(max-width: 767px)" srcset="{{ $mobileImage }}">@endif
+                                        <img src="{{ $slideImage ?: $mobileImage }}" alt="{{ $slide->media?->alt_text }}" loading="lazy" class="size-full object-cover">
+                                    </picture>
+                                @endif
                                 <div class="absolute inset-0 -z-10 bg-gradient-to-t from-black/95 via-black/60 to-black/20"></div>
                                 <h2 class="max-w-sm text-2xl font-extrabold uppercase leading-tight tracking-tight">{{ $slide->title }}</h2>
                                 @if($slide->description)<p class="mt-3 line-clamp-2 text-sm leading-6 text-white/75">{{ strip_tags($slide->description) }}</p>@endif

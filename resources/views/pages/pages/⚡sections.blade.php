@@ -54,17 +54,26 @@ new #[Layout('layouts.app')] class extends Component
     public array $heroEmblemMediaIds = [];
 
     /** @var array<string, list<int>> */
-    public array $sectionMediaIds = [];
+    public array $sectionMediaIds = ['hero_video' => [], 'hero_poster' => [], 'sermon_image' => [], 'salvation' => [], 'prayer' => [], 'join' => [], 'give' => [], 'prayer_background' => [], 'giving_background' => []];
 
     /** @return array<string, string> */
     public function mediaFields(): array
     {
         return match ($this->sectionType) {
             'hero' => ['hero_video' => 'Hero video', 'hero_poster' => 'Hero poster / fallback image'],
+            'featured-sermons' => ['sermon_image' => 'Sermon thumbnail'],
+            'ministries-grid' => \App\Models\Ministry::query()->active()->published()->ordered()->get(['id', 'name'])->mapWithKeys(fn ($ministry): array => ['ministry_'.$ministry->id => $ministry->name.' image'])->all(),
             'next-steps' => ['salvation' => 'Salvation image', 'prayer' => 'Prayer image', 'join' => 'Join TWM image', 'give' => 'Giving image'],
             'prayer-giving' => ['prayer_background' => 'Prayer background', 'giving_background' => 'Giving background'],
             default => [],
         };
+    }
+
+    public function updatedSectionType(): void
+    {
+        foreach ($this->mediaFields() as $key => $label) {
+            $this->sectionMediaIds[$key] ??= [];
+        }
     }
 
     public function mount(Page $page, HomepageSectionSynchronizer $homepageSections): void
@@ -108,7 +117,7 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->sectionId = $section->id;
         $this->sectionType = $section->section_type->value;
-        $this->sectionMediaIds = [];
+        $this->reset('sectionMediaIds');
         foreach ($this->mediaFields() as $key => $label) {
             $id = data_get($section->settings, $key.'_media_id');
             $this->sectionMediaIds[$key] = filled($id) ? [(int) $id] : [];

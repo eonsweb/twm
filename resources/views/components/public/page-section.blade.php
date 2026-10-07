@@ -11,12 +11,17 @@
 @endphp
 @if($isWelcome)
     <x-public.home.welcome
+        :image-url="$data['imageUrl'] ?? null"
+        :about-page="$data['aboutPage'] ?? null"
         :leader="$data['leader'] ?? null"
         :settings="$data['settings'] ?? []"
         :section="$section"
     />
 @elseif($isWelcomeUpcomingEvent)
     <x-public.home.welcome-upcoming-event
+        :sermon-image-url="$data['sermonImageUrl'] ?? null"
+        :image-url="$data['imageUrl'] ?? null"
+        :about-page="$data['aboutPage'] ?? null"
         :leader="$data['leader'] ?? null"
         :settings="$data['settings'] ?? []"
         :sermon="$data['sermon'] ?? null"
@@ -33,6 +38,7 @@
 @elseif($isMinistriesGrid)
     <x-public.home.ministries
         :ministries="$data['items'] ?? collect()"
+        :images="$data['images'] ?? []"
         :heading="$section->heading ?: __('Our Ministries')"
         heading-id="section-{{ $section->id }}-heading"
     />

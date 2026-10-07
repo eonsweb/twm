@@ -47,24 +47,24 @@
             @endif
         </a>
 
-        <nav aria-label="{{ __('Main navigation') }}" class="font-heading hidden items-center gap-5 text-xs font-semibold lg:flex">
+        <nav aria-label="{{ __('Main navigation') }}" class="font-heading hidden items-center gap-5 text-xs font-semibold xl:flex">
             @foreach ($navigation as $item)
                 <a href="{{ $item['url'] }}" @class(['border-b-2 py-7 transition hover:text-church-gold-300', 'border-church-gold-400 text-church-gold-300' => $item['active'], 'border-transparent text-white' => ! $item['active']]) wire:navigate>{{ $item['label'] }}</a>
             @endforeach
         </nav>
 
-        <div class="flex items-center gap-2">
+        <div class="flex shrink-0 items-center gap-2">
             <a href="{{ $liveUrl }}" @if (str_starts_with($liveUrl, 'http')) target="_blank" rel="noopener noreferrer" @else wire:navigate @endif class="hidden rounded-md px-4 py-2.5 text-xs font-bold uppercase shadow-lg transition hover:brightness-110 sm:inline-flex" style="background-color: {{ $accentColor }}; color: {{ $primaryColor }}">
                 {{ __('Watch Live') }}
             </a>
-            <button type="button" class="grid size-11 place-items-center rounded-md border border-white/20 lg:hidden" x-on:click="open = ! open" x-bind:aria-expanded="open" aria-controls="public-mobile-menu" aria-label="{{ __('Toggle navigation') }}">
+            <button type="button" class="grid size-11 place-items-center rounded-md border border-white/20 xl:hidden" x-on:click="open = ! open" x-bind:aria-expanded="open" aria-controls="public-mobile-menu" aria-label="{{ __('Toggle navigation') }}">
                 <flux:icon.bars-3 x-show="! open" class="size-5" />
                 <flux:icon.x-mark x-cloak x-show="open" class="size-5" />
             </button>
         </div>
     </div>
 
-    <nav id="public-mobile-menu" x-cloak x-show="open" x-on:keydown.escape.window="open = false" x-transition aria-label="{{ __('Mobile navigation') }}" class="font-heading absolute inset-x-0 top-full border-t border-white/10 bg-zinc-950 px-4 py-4 shadow-2xl lg:hidden">
+    <nav id="public-mobile-menu" x-cloak x-show="open" x-on:keydown.escape.window="open = false" x-transition aria-label="{{ __('Mobile navigation') }}" class="font-heading absolute inset-x-0 top-full border-t border-white/10 bg-zinc-950 px-4 py-4 shadow-2xl xl:hidden">
         <div class="mx-auto grid max-w-7xl gap-1">
             @foreach ($navigation as $item)
                 <a href="{{ $item['url'] }}" x-on:click="open = false" @class(['rounded-md px-4 py-3 text-sm font-semibold hover:bg-white/10', 'text-church-gold-300' => $item['active']]) wire:navigate>{{ $item['label'] }}</a>

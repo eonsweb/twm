@@ -7,7 +7,7 @@ import 'swiper/css/navigation';
 
 const initializeMinistriesSwipers = () => {
     document.querySelectorAll('[data-ministries-swiper]').forEach((slider) => {
-        slider.swiper?.destroy(true, true);
+        if (slider.swiper) return;
 
         const section = slider.closest('[data-ministries-section]');
 

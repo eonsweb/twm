@@ -3,13 +3,15 @@ import { A11y, Keyboard, Navigation } from 'swiper/modules';
 import 'swiper/css/a11y';
 
 const cleanups = new Set();
+const initialized = new WeakSet();
 export function destroyHomepage() {
     cleanups.forEach((cleanup) => cleanup());
     cleanups.clear();
 }
 export function initializeHomepage() {
-    destroyHomepage();
     document.querySelectorAll('[data-messages-swiper]').forEach((element) => {
+        if (initialized.has(element)) return;
+        initialized.add(element);
         const section = element.closest('[data-message-section]');
         const swiper = new Swiper(element, {
             modules: [A11y, Keyboard, Navigation],
@@ -27,17 +29,22 @@ export function initializeHomepage() {
             },
             breakpoints: { 640: { slidesPerView: 2 }, 1024: { slidesPerView: 3, spaceBetween: 24 } },
         });
-        cleanups.add(() => swiper.destroy(true, true));
+        cleanups.add(() => { swiper.destroy(true, true); initialized.delete(element); });
     });
     document.querySelectorAll('[data-background-video]').forEach((video) => {
+        if (initialized.has(video)) return;
+        initialized.add(video);
         const button = video.closest('[data-cinematic-hero]').querySelector('[data-video-toggle]');
+        video.hidden = false;
+        button.hidden = false;
         const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
         let paused = motion.matches;
         let destroyed = false;
+        let unavailable = false;
         const update = () => {
             button.textContent = paused ? 'Play video' : 'Pause video';
             button.setAttribute('aria-pressed', String(paused));
-            if (paused || document.hidden || destroyed) {
+            if (paused || document.hidden || destroyed || unavailable) {
                 video.pause();
                 return;
             }
@@ -57,7 +64,7 @@ export function initializeHomepage() {
         };
         const toggle = () => { paused = !paused; update(); };
         const preference = () => { paused = motion.matches; update(); };
-        const failed = () => { video.hidden = true; button.hidden = true; video.pause(); };
+        const failed = () => { unavailable = true; video.hidden = true; button.hidden = true; video.pause(); };
         button.addEventListener('click', toggle);
         motion.addEventListener('change', preference);
         document.addEventListener('visibilitychange', update);
@@ -65,11 +72,14 @@ export function initializeHomepage() {
         update();
         cleanups.add(() => {
             destroyed = true;
+            initialized.delete(video);
             video.pause();
             button.removeEventListener('click', toggle);
             motion.removeEventListener('change', preference);
             document.removeEventListener('visibilitychange', update);
             video.removeEventListener('error', failed, true);
+            video.querySelector('source')?.remove();
+            video.load();
         });
     });
 }

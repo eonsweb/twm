@@ -1,4 +1,4 @@
-@props(['leader' => null, 'settings' => [], 'section' => null])
+@props(['leader' => null, 'settings' => [], 'section' => null, 'aboutPage' => null, 'imageUrl' => null])
 
 @php
     $homepage = $settings['homepage'] ?? [];
@@ -8,8 +8,8 @@
     $leaderSignature = $leader
         ? collect([$leader->first_name, $leader->middle_name, $leader->last_name])->filter()->implode(' ')
         : null;
-    $welcomeHeading = $section?->heading ?: ($homepage['welcome_heading'] ?? null);
-    $welcomeMessage = $section?->content ?: ($homepage['welcome_message'] ?? $homepage['welcome_body'] ?? null);
+    $welcomeHeading = $section?->heading ?: ($homepage['welcome_heading'] ?? $aboutPage?->title ?? __('Rooted in faith. Living in overflow.'));
+    $welcomeMessage = $section?->content ?: ($homepage['welcome_message'] ?? $homepage['welcome_body'] ?? $aboutPage?->excerpt ?? $aboutPage?->content ?? null);
     $welcomeMessageHasHtml = is_string($welcomeMessage) && $welcomeMessage !== strip_tags($welcomeMessage);
     $signature = data_get($sectionSettings, 'welcome_signature')
         ?: data_get($sectionSettings, 'signature_text')
@@ -24,7 +24,7 @@
         ?: data_get($homepage, 'welcome_pastor_role')
         ?: data_get($homepage, 'welcome_pastor_title')
         ?: $leaderTitle;
-    $pastorImageUrl = $section?->backgroundImage?->publicImageUrl() ?: $leader?->photoUrl();
+    $pastorImageUrl = $section?->backgroundImage?->publicImageUrl() ?: $aboutPage?->featuredImage?->publicImageUrl() ?: $imageUrl;
     $pastorImageAlt = data_get($sectionSettings, 'pastor_image_alt')
         ?: $section?->backgroundImage?->alt_text
         ?: ($pastorName ? __('Portrait of :name', ['name' => $pastorName]) : __('Church pastor'));
@@ -56,7 +56,7 @@
                 @endif
 
                 @if($signature)
-                    <p class="mt-7 font-signature text-3xl leading-none text-church-gold-700 sm:text-4xl">{{ $signature }}</p>
+                    <p class="mt-7 font-signature text-3xl leading-none text-[var(--twm-accent)] sm:text-4xl">{{ $signature }}</p>
                 @endif
                 @if($pastorName)
                     <p class="mt-5 font-heading text-sm font-bold uppercase tracking-[0.08em] text-white">{{ $pastorName }}</p>
@@ -64,7 +64,7 @@
                 @if($pastorRole)
                     <p class="mt-1 font-body text-xs font-semibold uppercase tracking-[0.08em] text-white/60">{{ $pastorRole }}</p>
                 @endif
-                <a href="{{ route('public.contact') }}" wire:navigate class="mt-8 inline-flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-[var(--twm-accent)]">{{ __('Connect with TWM') }} <flux:icon.arrow-up-right class="size-5" /></a>
+                <a href="{{ $aboutPage ? route('public.pages.show', $aboutPage) : route('public.contact') }}" wire:navigate class="mt-8 inline-flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-[var(--twm-accent)]">{{ $aboutPage ? __('More About TWM') : __('Connect with TWM') }} <flux:icon.arrow-up-right class="size-5" /></a>
             </div>
         </div>
     </div>

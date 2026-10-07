@@ -2,6 +2,8 @@
 
 namespace App\Pages;
 
+use App\MediaType;
+use App\Models\HomepageHeroSlide;
 use App\Models\Media;
 use App\Models\PageSection;
 
@@ -40,7 +42,7 @@ final class HomepageHero
             'theme' => '',
             'description' => '<p>A place to encounter God, discover purpose and live victoriously.</p>',
             'primary_label' => 'WATCH NOW',
-            'primary_url' => route('public.sermons.index', absolute: false),
+            'primary_url' => null,
             'secondary_label' => 'PLAN YOUR VISIT',
             'secondary_url' => '#visit',
             'emblem_media_id' => null,
@@ -93,7 +95,7 @@ final class HomepageHero
             'emblem' => $emblem?->publicImageUrl() ? $emblem : null,
             'video' => $this->video($settings),
             'poster' => Media::query()->images()->public()->active()->find(data_get($settings, 'hero_poster_media_id')),
-            'slides' => \App\Models\HomepageHeroSlide::query()->where('page_id', $section->page_id)->visible()->with(['media', 'mobileMedia', 'videoPosterMedia', 'emblemMedia'])->orderBy('sort_order')->orderBy('id')->get(),
+            'slides' => HomepageHeroSlide::query()->where('page_id', $section->page_id)->visible()->with(['media', 'mobileMedia', 'videoPosterMedia', 'emblemMedia'])->orderBy('sort_order')->orderBy('id')->get(),
         ];
     }
 
@@ -102,7 +104,7 @@ final class HomepageHero
     {
         $media = Media::query()->find(data_get($settings, 'hero_video_media_id'));
 
-        return $media?->media_type === \App\MediaType::Video && \App\Models\HomepageHeroSlide::usableMedia($media)
+        return $media?->media_type === MediaType::Video && HomepageHeroSlide::usableMedia($media)
             ? $media : null;
     }
 }

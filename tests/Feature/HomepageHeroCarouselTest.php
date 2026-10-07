@@ -76,7 +76,7 @@ test('zero eligible slides preserve the legacy hero and a single slide omits pag
     $this->get(route('home'))->assertOk()->assertSee('Single slide')->assertDontSee('data-hero-pagination', false);
 });
 
-test('images mobile media and videos use library URLs and deferred video sources', function (): void {
+test('promotional cards use library images mobile sources and video posters without loading extra videos', function (): void {
     $image = carouselMedia(['alt_text' => 'Congregation praising God']);
     $mobile = carouselMedia(['alt_text' => 'Mobile worship photograph']);
     $poster = carouselMedia();
@@ -84,9 +84,9 @@ test('images mobile media and videos use library URLs and deferred video sources
     HomepageHeroSlide::factory()->for($this->page)->create(['media_id' => $image->id, 'mobile_media_id' => $mobile->id, 'sort_order' => 1]);
     HomepageHeroSlide::factory()->for($this->page)->create(['media_id' => $video->id, 'media_type' => 'video', 'video_poster_media_id' => $poster->id, 'sort_order' => 2]);
     $this->get(route('home'))->assertOk()->assertSee($image->publicUrl(), false)->assertSee($mobile->publicUrl(), false)
-        ->assertSee('Congregation praising God')->assertSee('fetchpriority="high"', false)
-        ->assertSee('data-src="'.$video->publicUrl().'"', false)->assertSee('muted playsinline preload="none"', false)
-        ->assertSee('poster="'.$poster->publicImageUrl().'"', false)->assertSee('data-hero-pagination', false);
+        ->assertSee('Congregation praising God')->assertSee($poster->publicImageUrl(), false)
+        ->assertSee('data-messages-swiper', false)->assertDontSee('data-src="'.$video->publicUrl().'"', false)
+        ->assertDontSee('<video', false);
 });
 
 test('the editor creates updates and deletes slides without deleting library assets', function (): void {
@@ -149,7 +149,7 @@ test('the data migration preserves the anniversary presentation and legacy confi
     expect(HomepageHeroSlide::count())->toBe(1)->and($slide->title)->toBe($this->hero->heading)
         ->and($slide->media_id)->toBe($media->id)->and($slide->settings['theme'])->toBe('Original theme');
     expect($this->hero->fresh()->heading)->toBe('Preserved anniversary');
-    $this->get(route('home'))->assertOk()->assertSee('Preserved anniversary')->assertSee('Original theme')->assertSee('hero-animate-delay-800', false);
+    $this->get(route('home'))->assertOk()->assertSee('Preserved anniversary')->assertSee('Original theme')->assertSee('data-messages-swiper', false);
 });
 
 test('the homepage administration exposes the slide manager with library-only selection', function (): void {

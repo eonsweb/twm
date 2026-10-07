@@ -6,9 +6,11 @@ use App\EventStatus;
 use App\Models\Book;
 use App\Models\Event;
 use App\Models\Ministry;
+use App\Models\Page;
 use App\Models\Person;
 use App\Models\Sermon;
 use App\Models\ServiceSchedule;
+use App\Pages\HomepageMedia;
 use App\Settings\BrandingMedia;
 use App\Settings\SettingManager;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,6 +31,10 @@ class HomepageContent
     /**
      * @return array{
      *   settings: array<string, array<string, mixed>>,
+     *   aboutPage: Page|null,
+     *   welcomeImageUrl: string|null,
+     *   sermonImageUrl: string|null,
+     *   ministryImages: array<int, string|null>,
      *   enabledSections: list<string>,
      *   heroImageUrl: string|null,
      *   logoUrl: string|null,
@@ -48,18 +54,26 @@ class HomepageContent
             'general', 'homepage', 'church', 'contact', 'branding', 'social', 'donations',
         ]);
         $brandingUrls = $this->brandingMedia->urls($settings['branding'] ?? []);
+        $ministries = $this->ministries();
+        $sermon = $this->latestSermon();
+        $leader = $this->welcomeLeader($settings['homepage'] ?? []);
+        $media = app(HomepageMedia::class);
 
         return [
             'settings' => $settings,
+            'aboutPage' => Page::query()->publiclyVisible()->whereIn('slug', ['about-us', 'about'])->with('featuredImage')->first(),
             'enabledSections' => $this->enabledSections($settings['homepage'] ?? []),
             'heroImageUrl' => $brandingUrls['homepage_hero_image'] ?? null,
             'logoUrl' => $brandingUrls['primary_logo'] ?? null,
             'socialImageUrl' => $brandingUrls['social_share_image'] ?? null,
             'serviceSchedules' => $this->serviceSchedules(),
-            'welcomeLeader' => $this->welcomeLeader($settings['homepage'] ?? []),
-            'latestSermon' => $this->latestSermon(),
+            'welcomeLeader' => $leader,
+            'welcomeImageUrl' => $media->image($leader?->photo_path),
+            'latestSermon' => $sermon,
+            'sermonImageUrl' => $media->image($sermon?->thumbnail_path) ?: $sermon?->external_thumbnail_url,
             'upcomingEvents' => $this->upcomingEvents(),
-            'ministries' => $this->ministries(),
+            'ministries' => $ministries,
+            'ministryImages' => $media->ministries($ministries),
             'featuredBook' => $this->featuredBook(),
             'testimonials' => $this->testimonials($settings['homepage'] ?? []),
         ];
@@ -103,7 +117,7 @@ class HomepageContent
             ->latest('sermon_date')
             ->latest('published_at')
             ->first([
-                'id', 'title', 'slug', 'summary', 'sermon_date', 'external_media_url',
+                'id', 'title', 'slug', 'summary', 'scripture_reference', 'sermon_date', 'external_media_url',
                 'media_platform', 'media_type', 'embed_url', 'thumbnail_path',
                 'external_thumbnail_url', 'speaker_id', 'published_at', 'is_featured',
             ]);
@@ -123,6 +137,7 @@ class HomepageContent
             ->limit(3)
             ->get([
                 'id', 'event_type_id', 'featured_image_id', 'title', 'slug', 'icon', 'starts_at', 'ends_at',
+                'location_type', 'venue_name', 'city',
                 'timezone', 'schedule_type', 'is_all_day', 'is_recurring', 'recurrence_interval',
                 'recurrence_days', 'recurrence_week_of_month', 'recurrence_month',
                 'recurrence_day_of_month', 'recurrence_end_date', 'sort_order',

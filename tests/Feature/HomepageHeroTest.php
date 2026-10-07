@@ -179,18 +179,10 @@ test('the public anniversary hero resolves content media and dynamic brand color
         ->assertSee(Storage::disk('public')->url($background->path), false)
         ->assertSee(Storage::disk('public')->url($emblem->path), false)
         ->assertSee('alt="20 years emblem"', false)
-        ->assertSee('--hero-primary: #572033', false)
-        ->assertSee('--hero-accent: #f2c94c', false)
+        ->assertSee('--twm-primary: #572033', false)
+        ->assertSee('--twm-accent: #f2c94c', false)
         ->assertSee('overflow-hidden', false)
-        ->assertSee('flex-col', false)
-        ->assertSee('hero-animate hero-animate-delay-100', false)
-        ->assertSee('hero-animate hero-animate-delay-200', false)
-        ->assertSee('hero-animate hero-animate-delay-300', false)
-        ->assertSee('hero-animate hero-animate-delay-400', false)
-        ->assertSee('hero-animate hero-animate-delay-500', false)
-        ->assertSee('hero-animate hero-animate-delay-600', false)
-        ->assertSee('hero-animate hero-animate-delay-700', false)
-        ->assertSee('hero-animate hero-animate-delay-800', false);
+        ->assertSee('flex-col', false);
 });
 
 test('an unauthorized user cannot access or update homepage hero settings', function (): void {
@@ -268,14 +260,14 @@ test('the selected background and alt text render on the public homepage', funct
         ->assertSee('fetchpriority="high"', false);
 });
 
-test('the exact gradient remains when no hero image is selected', function (): void {
+test('the branded fallback remains when no hero image is selected', function (): void {
     $page = homepageHeroPage();
     saveHomepageHero(homepageHeroAdministrator(), $page);
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertSee('bg-[linear-gradient(to_right,rgb(195,20,50),rgb(36,11,54))]', false)
-        ->assertSee('opacity-95', false)
+        ->assertSee('bg-[var(--twm-primary)]', false)
+        ->assertSee('data-cinematic-hero', false)
         ->assertDontSee('<img', false);
 });
 
@@ -288,7 +280,7 @@ test('missing and deleted hero media do not render a broken image', function ():
     $this->get(route('home'))
         ->assertOk()
         ->assertDontSee(Storage::disk('public')->url($image->path), false)
-        ->assertSee('opacity-95', false);
+        ->assertSee('data-cinematic-hero', false);
 
     $image->delete();
     $this->get(route('home'))

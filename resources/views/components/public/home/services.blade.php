@@ -3,7 +3,7 @@
 <section id="visit" aria-labelledby="service-times-heading" class="bg-[#f7f6f3] py-12 lg:py-20">
     <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <div class="text-center">
-            <p class="text-xs font-bold uppercase tracking-[0.18em] text-church-gold-600">{{ __('Plan Your Visit') }}</p>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-[var(--twm-primary)]">{{ __('Plan Your Visit') }}</p>
             <h2 id="service-times-heading" class="twm-heading mt-4 text-zinc-950">{{ $section?->heading ?: __('Join Us at TWM') }}</h2>
         </div>
 

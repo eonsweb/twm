@@ -6,7 +6,9 @@ use App\EventStatus;
 use App\Models\Book;
 use App\Models\Event;
 use App\Models\EventType;
+use App\Models\Media;
 use App\Models\Ministry;
+use App\Models\Page;
 use App\Models\PageSection;
 use App\Models\Person;
 use App\Models\Post;
@@ -14,7 +16,6 @@ use App\Models\Sermon;
 use App\Models\ServiceSchedule;
 use App\Settings\SettingManager;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 
 class SectionDataResolver
 {
@@ -27,13 +28,11 @@ class SectionDataResolver
 
         return match ($section->section_type->value) {
             'prayer-giving' => app(PrayerGivingSection::class)->resolve($section),
-            'next-steps' => ['images' => \App\Models\Media::query()->images()->public()->active()->whereKey(array_filter(array_map(fn (string $key) => data_get($section->settings, $key.'_media_id'), ['salvation', 'prayer', 'join', 'give'])))->get()->keyBy('id')],
+            'next-steps' => ['images' => Media::query()->images()->public()->active()->whereKey(array_filter(array_map(fn (string $key) => data_get($section->settings, $key.'_media_id'), ['salvation', 'prayer', 'join', 'give'])))->get()->keyBy('id')],
             'featured-sermons' => $this->featuredSermon($section),
             'upcoming-events' => $this->events($section, $limit),
             'latest-posts' => ['items' => Post::query()->publiclyVisible()->latest('published_at')->limit($limit)->get()],
-            'ministries-grid' => ['items' => Ministry::query()->active()->published()->ordered()->get([
-                'id', 'name', 'slug', 'featured_image', 'logo', 'display_order',
-            ])],
+            'ministries-grid' => $this->ministries($section),
             'leadership-grid' => ['items' => Person::query()->where('is_active', true)->where('is_public', true)->limit($limit)->get()],
             'featured-book' => ['book' => $this->featuredBook()],
             'books-grid' => ['items' => Book::query()->where('status', 'published')->latest('published_at')->limit($limit)->get()],
@@ -46,7 +45,15 @@ class SectionDataResolver
         };
     }
 
-    /** @return array{items: Collection<int, Sermon>} */
+    /** @return array<string, mixed> */
+    private function ministries(PageSection $section): array
+    {
+        $items = Ministry::query()->active()->published()->ordered()->get(['id', 'name', 'slug', 'featured_image', 'logo', 'display_order']);
+
+        return ['items' => $items, 'images' => app(HomepageMedia::class)->ministries($items, $section->settings ?? [])];
+    }
+
+    /** @return array<string, mixed> */
     private function featuredSermon(PageSection $section): array
     {
         $speakerId = data_get($section->settings, 'speaker_id');
@@ -58,20 +65,18 @@ class SectionDataResolver
             ->latest('sermon_date')
             ->latest('published_at')
             ->first([
-                'id', 'title', 'slug', 'summary', 'sermon_date', 'external_media_url',
+                'id', 'title', 'slug', 'summary', 'scripture_reference', 'sermon_date', 'external_media_url',
                 'media_platform', 'media_type', 'embed_url', 'thumbnail_path',
                 'external_thumbnail_url', 'speaker_id', 'published_at', 'is_featured',
             ]);
 
-        return ['items' => collect([$sermon])->filter()->values()];
+        return ['items' => collect([$sermon])->filter()->values(), 'imageUrl' => app(HomepageMedia::class)->image($sermon?->thumbnail_path, data_get($section->settings, 'sermon_image_media_id')) ?: $sermon?->external_thumbnail_url];
     }
 
     /** @return array<string, mixed> */
     private function welcomeUpcomingEvent(): array
     {
         $welcome = $this->welcome();
-        $settings = $welcome['settings'];
-        $leader = $welcome['leader'];
         $sermon = Sermon::query()
             ->publiclyAvailable()
             ->with('speaker:id,title,first_name,middle_name,last_name,slug')
@@ -96,7 +101,12 @@ class SectionDataResolver
                 'recurrence_day_of_month', 'recurrence_end_date',
             ]);
 
-        return compact('settings', 'leader', 'sermon', 'events');
+        return [
+            ...$welcome,
+            'sermon' => $sermon,
+            'events' => $events,
+            'sermonImageUrl' => app(HomepageMedia::class)->image($sermon?->thumbnail_path) ?: $sermon?->external_thumbnail_url,
+        ];
     }
 
     /** @return array<string, mixed> */
@@ -116,7 +126,12 @@ class SectionDataResolver
                 ->orderBy('id'))
             ->first(['id', 'title', 'first_name', 'middle_name', 'last_name', 'slug', 'photo_path']);
 
-        return compact('settings', 'leader');
+        return [
+            'settings' => $settings,
+            'leader' => $leader,
+            'aboutPage' => Page::query()->publiclyVisible()->whereIn('slug', ['about-us', 'about'])->with('featuredImage')->first(),
+            'imageUrl' => app(HomepageMedia::class)->image($leader?->photo_path),
+        ];
     }
 
     private function featuredBook(): ?Book
@@ -146,6 +161,7 @@ class SectionDataResolver
         $eventColumns = [
             'id', 'event_type_id', 'featured_image_id', 'title', 'slug', 'short_description',
             'description', 'featured_image', 'icon', 'starts_at', 'ends_at', 'timezone',
+            'location_type', 'venue_name', 'city',
             'schedule_type', 'is_all_day', 'is_recurring', 'recurrence_interval',
             'recurrence_days', 'recurrence_week_of_month', 'recurrence_month',
             'recurrence_day_of_month', 'recurrence_end_date', 'is_featured',

@@ -31,7 +31,7 @@ test('the public homepage renders its shared layout and primary calls to action'
         ->assertSee('Watch Live')
         ->assertSee('Submit Prayer Request')
         ->assertSee('Quick Links')
-        ->assertSee('welcome-upcoming-event')
+        ->assertSee('data-next-steps', false)
         ->assertSee('application/ld+json', false);
 });
 
@@ -120,7 +120,7 @@ test('the latest sermon section renders a YouTube URL with unrelated parameters'
         ->assertSee(route('public.sermons.show', $sermon), false);
 });
 
-test('the managed featured sermon section renders the featured video and details', function (): void {
+test('the managed featured sermon section renders a lazy thumbnail and message details', function (): void {
     $page = Page::factory()->published()->create(['title' => 'Managed Home', 'is_homepage' => true]);
     PageSection::factory()->for($page)->create([
         'name' => 'Featured sermon',
@@ -148,16 +148,16 @@ test('the managed featured sermon section renders the featured video and details
         ->assertSee($featured->summary)
         ->assertDontSee($newest->title)
         ->assertDontSee('Featured Draft Message')
-        ->assertSee($featured->embed_url, false)
-        ->assertSee('referrerpolicy="strict-origin-when-cross-origin"', false)
+        ->assertDontSee('<iframe', false)
+        ->assertSee($featured->external_thumbnail_url, false)
+        ->assertSee('loading="lazy"', false)
         ->assertSee('aspect-video', false)
-        ->assertSee('lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]', false)
         ->assertSee('data-featured-sermon', false)
-        ->assertSee('Watch Now')
+        ->assertSee('Watch Message')
         ->assertSee(route('public.sermons.show', $featured), false)
-        ->assertSee('View All Sermons')
+        ->assertSee('Explore all sermons')
         ->assertSee(route('public.sermons.index'), false)
-        ->assertSeeInOrder([$featured->embed_url, $featured->title, 'Watch Now', 'View All Sermons'], false)
+        ->assertSeeInOrder([$featured->title, 'Watch Message', 'Explore all sermons'], false)
         ->assertDontSee('<video', false)
         ->assertDontSee('Sermon Series')
         ->assertDontSee('Sermon Topics');
@@ -284,12 +284,11 @@ test('the managed upcoming events section features one event and shows the next 
     $response = $this->get(route('home'))
         ->assertOk()
         ->assertSee('data-upcoming-events', false)
-        ->assertSee('bg-church-green-900', false)
-        ->assertSee('lg:grid-cols-2', false)
+        ->assertSee('lg:grid-cols-3', false)
         ->assertSee($featured->imageUrl(), false)
         ->assertSee($featured->short_description)
         ->assertSee('Special Church Event')
-        ->assertSee('10:00 AM – 12:00 PM')
+        ->assertSee('10:00 AM')
         ->assertSee('All Day')
         ->assertSeeInOrder([$featured->title, $soonest->title, $allDay->title, $third->title])
         ->assertDontSee('Fifth Upcoming Event')
@@ -298,10 +297,10 @@ test('the managed upcoming events section features one event and shows the next 
         ->assertSee(route('public.events.show', $featured), false)
         ->assertSee(route('public.events.show', $soonest), false)
         ->assertSee(route('public.events.index'), false)
-        ->assertSee('View More Events')
-        ->assertSee('focus-visible:outline-2', false);
+        ->assertSee('View All Events')
+        ->assertSee('data-event-image', false);
 
-    expect(substr_count($response->getContent(), 'data-upcoming-event-item'))->toBe(3);
+    expect(substr_count($response->getContent(), 'data-upcoming-event-item'))->toBe(4);
 });
 
 test('the managed upcoming events section handles one event and an empty state', function (): void {
@@ -323,7 +322,7 @@ test('the managed upcoming events section handles one event and an empty state',
         ->assertSee($event->title)
         ->assertSee('data-event-image-fallback', false);
 
-    expect(substr_count($response->getContent(), 'data-upcoming-event-item'))->toBe(0);
+    expect(substr_count($response->getContent(), 'data-upcoming-event-item'))->toBe(1);
 
     $event->delete();
 
@@ -335,17 +334,20 @@ test('the managed upcoming events section handles one event and an empty state',
 
 test('the first-class welcome section follows service times in the managed section order', function (): void {
     $page = Page::factory()->published()->create(['title' => 'Managed Home', 'is_homepage' => true]);
-    PageSection::factory()->for($page)->create(['name' => 'Service times', 'section_type' => 'service-times', 'heading' => 'Join Us This Week', 'sort_order' => 20]);
+    PageSection::factory()->for($page)->create(['name' => 'Service times', 'section_type' => 'service-times', 'heading' => 'Join Us at TWM', 'sort_order' => 20]);
     PageSection::factory()->for($page)->create(['name' => 'Latest sermon', 'section_type' => 'featured-sermons', 'heading' => 'Legacy Sermons', 'sort_order' => 30]);
     PageSection::factory()->for($page)->create(['name' => 'Upcoming events', 'section_type' => 'upcoming-events', 'heading' => 'Legacy Events', 'sort_order' => 40]);
     app(HomepageSectionSynchronizer::class)->sync($page);
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertSeeInOrder(['Join Us This Week', 'Welcome Home!', 'Legacy Sermons', 'Legacy Events']);
+        ->assertSeeInOrder(['Join Us at TWM', 'Welcome Home!', 'Legacy Sermons', 'Legacy Events']);
 });
 
 test('the ministries carousel shows every published ministry in display order', function (): void {
+    Storage::fake('public');
+    $image = Media::factory()->create(['path' => 'ministries/featured.jpg']);
+    Storage::disk('public')->put($image->path, 'ministry artwork');
     $featured = Ministry::factory()->published()->featured()->create([
         'name' => 'Featured Ministry',
         'slug' => 'featured-ministry',
@@ -363,19 +365,20 @@ test('the ministries carousel shows every published ministry in display order', 
     $response = $this->get(route('home'))
         ->assertOk()
         ->assertSee('data-ministries-section', false)
-        ->assertSee('swiper ministries-swiper', false)
+        ->assertSee('data-ministries-swiper', false)
         ->assertSee('swiper-wrapper', false)
-        ->assertSee('swiper-slide h-auto', false)
+        ->assertSee('class="swiper-slide"', false)
         ->assertSee('data-ministries-prev', false)
         ->assertSee('data-ministries-next', false)
         ->assertSee('data-ministry-image-fallback', false)
-        ->assertSee('decoding="async"', false)
+        ->assertSee($image->publicImageUrl(), false)
+        ->assertSee('loading="lazy"', false)
         ->assertSee(route('public.ministries.show', $featured), false)
         ->assertSeeInOrder([$featured->name, ...$orderedMinistries->pluck('name')->all()])
         ->assertDontSee('Hidden Ministry')
         ->assertDontSee('Inactive Ministry');
 
-    expect(substr_count($response->getContent(), 'swiper-slide h-auto'))->toBe(9);
+    expect(substr_count($response->getContent(), 'class="swiper-slide"'))->toBe(9);
 });
 
 test('the administrator-selected public leader is used for the welcome section', function (): void {
@@ -561,7 +564,7 @@ test('administrators can disable optional homepage sections', function (): void 
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertSee('Join Us This Week')
+        ->assertSee('Join Us at TWM')
         ->assertDontSee('Our Ministries')
         ->assertDontSee('Youth Ministry');
 });
@@ -570,8 +573,8 @@ test('the homepage remains useful when all content collections are empty', funct
     $this->get(route('home'))
         ->assertOk()
         ->assertSee('Service times will be announced soon')
-        ->assertSee('No sermons available yet.')
-        ->assertSee('No upcoming events at the moment.')
+        ->assertSee('No sermons are available yet.')
+        ->assertSee('No upcoming events at this time.')
         ->assertDontSee('data-ministries-section', false)
         ->assertDontSee('data-featured-book', false);
 });

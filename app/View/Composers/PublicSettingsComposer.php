@@ -40,22 +40,30 @@ class PublicSettingsComposer
             'brandingMediaUrls' => $this->brandingMedia->urls($branding),
         ]);
 
-        $view->with('publicNavigationPages', Cache::remember(
+        if (! is_array(Cache::get('pages.public-navigation'))) {
+            Cache::forget('pages.public-navigation');
+        }
+
+        $view->with('publicNavigationPages', Page::hydrate(Cache::remember(
             'pages.public-navigation',
             now()->addMinutes(10),
-            fn () => Page::query()->publiclyVisible()->where('show_in_navigation', true)->where('is_homepage', false)->orderBy('navigation_order')->orderBy('title')->get(['title', 'slug', 'navigation_label']),
-        ));
+            fn () => Page::query()->publiclyVisible()->where('show_in_navigation', true)->where('is_homepage', false)->orderBy('navigation_order')->orderBy('title')->get(['title', 'slug', 'navigation_label'])->toArray(),
+        )));
 
         if (in_array($view->name(), ['welcome', 'layouts.public'], true)) {
+            if (! is_array(Cache::get('system-settings.public.service-schedules'))) {
+                Cache::forget('system-settings.public.service-schedules');
+            }
+
             $view->with(
                 'publicServiceSchedules',
-                Cache::rememberForever(
+                ServiceSchedule::hydrate(Cache::rememberForever(
                     'system-settings.public.service-schedules',
                     fn () => ServiceSchedule::query()
                         ->active()
                         ->ordered()
-                        ->get(),
-                ),
+                        ->get()->toArray(),
+                )),
             );
         }
     }
